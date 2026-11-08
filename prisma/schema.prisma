@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  schoolId           String
+  name               String
+  phone              String     @unique
+  passwordHash       String?
+  status             UserStatus @default(ACTIVE)
+  mustChangePassword Boolean    @default(false)
+  failedLoginCount   Int        @default(0)
+  roles              UserRole[]
+  sessions           Session[]
+  auditLogs          AuditLog[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  @@unique([id, schoolId])
+}
+
+model Role {
+  id           String           @id @default(cuid())
+  name         String           @unique
+  assignments  UserRole[]
+  capabilities RoleCapability[]
+}
+
+model Capability {
+  id    String           @id @default(cuid())
+  key   String           @unique
+  roles RoleCapability[]
+}
+
+model UserRole {
+  userId   String
+  roleId   String
+  schoolId String
+  user     User   @relation(fields: [userId, schoolId], references: [id, schoolId])
+  role     Role   @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model RoleCapability {
+  roleId       String
+  capabilityId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  capability   Capability @relation(fields: [capabilityId], references: [id])
+
+  @@id([roleId, capabilityId])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  schoolId         String
+  user             User      @relation(fields: [userId, schoolId], references: [id, schoolId])
+  activeRole       String
+  deviceName       String?
+  refreshTokenHash String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  schoolId   String
+  actor      User?    @relation(fields: [actorId, schoolId], references: [id, schoolId])
+  activeRole String?
+  action     String
+  entityType String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  createdAt  DateTime @default(now())
+}
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+model Student {
+  id          String            @id @default(cuid())
+  schoolId    String
+  admissionNo String
+  fullName    String
+  status      String            @default("ACTIVE")
+  guardians   StudentGuardian[]
+
+  @@unique([schoolId, admissionNo])
+  @@unique([id, schoolId])
+  @@index([schoolId])
+}
+
+model Guardian {
+  id        String            @id @default(cuid())
+  schoolId  String
+  name      String
+  phone     String            @unique
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  students  StudentGuardian[]
+
+  @@unique([id, schoolId])
+}
+
+model StudentGuardian {
+  studentId  String
+  guardianId String
+  schoolId   String
+  relation   String
+  isPrimary  Boolean  @default(false)
+  student    Student  @relation(fields: [studentId, schoolId], references: [id, schoolId])
+  guardian   Guardian @relation(fields: [guardianId, schoolId], references: [id, schoolId])
+
+  @@id([studentId, guardianId])
+}
+
+model Section {
+  id             String @id @default(cuid())
+  schoolId       String
+  name           String
+  className      String
+  academicYearId String
+
+  @@index([schoolId])
+}
+
+model TimetableEntry {
+  id              String   @id @default(cuid())
+  schoolId        String
+  sectionId       String
+  dayOfWeek       Int
+  period          Int
+  subjectId       String?
+  teacherId       String?
+  combinedGroupId String?
+  version         Int      @default(1)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([schoolId, sectionId, dayOfWeek, period])
+  @@index([schoolId])
+}
