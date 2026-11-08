@@ -217,3 +217,19 @@ ALTER TABLE "StudentGuardian" ADD CONSTRAINT "StudentGuardian_studentId_schoolId
 
 -- AddForeignKey
 ALTER TABLE "StudentGuardian" ADD CONSTRAINT "StudentGuardian_guardianId_schoolId_fkey" FOREIGN KEY ("guardianId", "schoolId") REFERENCES "Guardian"("id", "schoolId") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Keep Supabase's browser-facing Data API closed by default. The server-side
+-- Prisma database owner bypasses RLS; application tenant scoping remains required.
+ALTER TABLE public."User" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Role" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Capability" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."UserRole" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."RoleCapability" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Session" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."AuditLog" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."School" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Student" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Guardian" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."StudentGuardian" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Section" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."TimetableEntry" ENABLE ROW LEVEL SECURITY;
