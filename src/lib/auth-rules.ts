@@ -3,6 +3,12 @@ export function normalizeLoginPhone(value: string) {
   return /^[6-9]\d{9}$/.test(digits) ? digits : null;
 }
 
+export function normalizeLoginIdentifier(value: string, allowSyntheticStaff = false) {
+  const normalized = value.trim().toUpperCase();
+  if (allowSyntheticStaff && /^SYNTHETIC-STAFF-\d{3}$/.test(normalized)) return normalized;
+  return normalizeLoginPhone(value);
+}
+
 export function maySwitchRole(assignedRoles: readonly string[], requestedRole: string) {
   return assignedRoles.includes(requestedRole);
 }

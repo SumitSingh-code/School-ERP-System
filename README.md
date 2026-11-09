@@ -34,6 +34,8 @@ Other approved rules: guardian phone is unique per guardian; siblings link to on
 
 The local synthetic seed creates 1,000 students (including a twin pair and one inactive record), 900 guardian records, 1,000 student-guardian links (100 sibling pairs), and 60 staff role assignments. Synthetic contact identifiers start with `SYNTHETIC-` and are not real phone numbers. Seeded staff have no passwords and are data fixtures, not sign-in accounts.
 
+For a local-only phone/laptop sign-in demo, set `ALLOW_SYNTHETIC_SEED=true` and a private `SYNTHETIC_TEACHER_PASSWORD` in `.env`, run `npm run db:seed`, then start `npm run dev`. Sign in with phone/login ID `SYNTHETIC-STAFF-053` and the password you set; that synthetic ID is accepted only when synthetic mode is enabled outside production. Never set `ALLOW_SYNTHETIC_SEED=true` or the demo password in Vercel/production.
+
 ## Phase 0.5 database verification
 
 Docker is unavailable in the current development environment. To exercise the real database suite against a dedicated, empty Supabase test project:

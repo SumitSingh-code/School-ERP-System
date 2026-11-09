@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isLoginLockActive, normalizeLoginPhone, requiresOtpOnDevice, shouldLockAfterFailedLogin } from "@/lib/auth-rules";
+import { isLoginLockActive, normalizeLoginIdentifier, requiresOtpOnDevice, shouldLockAfterFailedLogin } from "@/lib/auth-rules";
 import { createOtpCode, hashClientIp, hashOtp, OTP_LIFETIME_MS, otpLimitReached, requestClientIp } from "@/lib/auth-otp";
 import { configuredOtpProvider } from "@/lib/sms/provider";
 import { DEVICE_COOKIE, issueStaffSession, setSessionCookies } from "@/lib/auth-session";
@@ -19,7 +19,8 @@ const MAX_FAILED_LOGINS = 5;
 
 export const POST = withPublicRoute(async (request: NextRequest) => {
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
-  const phone = parsed.success ? normalizeLoginPhone(parsed.data.phone) : null;
+  const allowSyntheticStaff = process.env.NODE_ENV !== "production" && process.env.ALLOW_SYNTHETIC_SEED === "true";
+  const phone = parsed.success ? normalizeLoginIdentifier(parsed.data.phone, allowSyntheticStaff) : null;
   if (!parsed.success || !phone) {
     return NextResponse.json({ error: "Phone number or password is incorrect" }, { status: 401 });
   }

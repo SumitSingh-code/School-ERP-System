@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasAssignedSchoolRole, isDeskSessionIdleExpired, isLoginLockActive, maySwitchRole, normalizeLoginPhone, passwordPolicyError, requiresNewDeviceOtp, requiresOtpOnDevice, shouldLockAfterFailedLogin } from "../src/lib/auth-rules";
+import { hasAssignedSchoolRole, isDeskSessionIdleExpired, isLoginLockActive, maySwitchRole, normalizeLoginIdentifier, normalizeLoginPhone, passwordPolicyError, requiresNewDeviceOtp, requiresOtpOnDevice, shouldLockAfterFailedLogin } from "../src/lib/auth-rules";
 import { ROLE_CAPABILITIES } from "../src/lib/role-permissions";
 
 test("login phone accepts Indian 10-digit input and normalizes common prefixes", () => {
@@ -9,6 +9,12 @@ test("login phone accepts Indian 10-digit input and normalizes common prefixes",
   assert.equal(normalizeLoginPhone("09876543210"), "9876543210");
   assert.equal(normalizeLoginPhone("12345"), null);
   assert.equal(normalizeLoginPhone("5123456789"), null);
+});
+
+test("synthetic login IDs are accepted only when local synthetic seed mode is enabled", () => {
+  assert.equal(normalizeLoginIdentifier("synthetic-staff-053", true), "SYNTHETIC-STAFF-053");
+  assert.equal(normalizeLoginIdentifier("SYNTHETIC-STAFF-053", false), null);
+  assert.equal(normalizeLoginIdentifier("SYNTHETIC-STAFF-9999", true), null);
 });
 
 test("a user can switch only to a role assigned to their own account", () => {

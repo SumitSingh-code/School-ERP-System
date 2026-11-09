@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import argon2 from "argon2";
+import { passwordPolicyError } from "../src/lib/auth-rules";
 import { seedSystemRoles } from "../src/lib/role-permissions";
 
 const prisma = new PrismaClient();
@@ -7,6 +9,12 @@ async function main() {
   if (process.env.NODE_ENV === "production" || process.env.ALLOW_SYNTHETIC_SEED !== "true") {
     throw new Error("Synthetic seed data is blocked unless ALLOW_SYNTHETIC_SEED=true is explicitly set in a non-production environment.");
   }
+  const demoTeacherPassword = process.env.SYNTHETIC_TEACHER_PASSWORD;
+  const demoTeacherPasswordError = demoTeacherPassword ? passwordPolicyError(demoTeacherPassword, "SYNTHETIC-STAFF-053") : null;
+  if (demoTeacherPasswordError) throw new Error(`SYNTHETIC_TEACHER_PASSWORD: ${demoTeacherPasswordError}`);
+  const demoTeacherPasswordHash = demoTeacherPassword
+    ? await argon2.hash(demoTeacherPassword, { type: argon2.argon2id })
+    : null;
 
   const school = await prisma.school.upsert({
     where: { id: "demo-school" },
@@ -72,16 +80,23 @@ async function main() {
       staffIndex += 1;
       const sequence = String(staffIndex).padStart(3, "0");
       const phone = `SYNTHETIC-STAFF-${sequence}`;
+      const isDemoTeacher = roleName === "Teacher" && index === 0;
       const user = await prisma.user.upsert({
         where: { phone },
-        update: { name: `Synthetic Staff ${sequence}`, schoolId: school.id, status: "ACTIVE", deletedAt: null },
+        update: {
+          name: `Synthetic Staff ${sequence}`,
+          schoolId: school.id,
+          status: "ACTIVE",
+          deletedAt: null,
+          ...(isDemoTeacher && demoTeacherPasswordHash ? { passwordHash: demoTeacherPasswordHash, mustChangePassword: false } : {}),
+        },
         create: {
           id: `demo-staff-${sequence}`,
           schoolId: school.id,
           name: `Synthetic Staff ${sequence}`,
           phone,
-          passwordHash: null,
-          mustChangePassword: true,
+          passwordHash: isDemoTeacher ? demoTeacherPasswordHash : null,
+          mustChangePassword: !isDemoTeacher || !demoTeacherPasswordHash,
         },
       });
       staffRoleLinks.push({ userId: user.id, roleId, schoolId: school.id });
