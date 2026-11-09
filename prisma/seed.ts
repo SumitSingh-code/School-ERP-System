@@ -4,8 +4,8 @@ import { seedSystemRoles } from "../src/lib/role-permissions";
 const prisma = new PrismaClient();
 
 async function main() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Synthetic seed data is blocked in production. Provision a real school through the setup procedure instead.");
+  if (process.env.NODE_ENV === "production" || process.env.ALLOW_SYNTHETIC_SEED !== "true") {
+    throw new Error("Synthetic seed data is blocked unless ALLOW_SYNTHETIC_SEED=true is explicitly set in a non-production environment.");
   }
 
   const school = await prisma.school.upsert({

@@ -13,6 +13,7 @@
     "worker": "tsx src/worker/index.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "provision:director": "tsx scripts/provision-director.ts"
   },

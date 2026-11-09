@@ -3,6 +3,23 @@ on: [push, pull_request]
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: erp_test_only
+          POSTGRES_DB: school_erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d school_erp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://erp_test:erp_test_only@localhost:5432/school_erp_test?schema=public&pgbouncer=true"
+      DIRECT_URL: "postgresql://erp_test:erp_test_only@localhost:5432/school_erp_test?schema=public"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -10,6 +27,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:deploy
+      - run: npm run db:seed
+        env:
+          ALLOW_SYNTHETIC_SEED: "true"
+      - run: npm run test:db
+        env:
+          TENANT_DB_TEST: "1"
+      - run: npx prisma validate
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

@@ -33,7 +33,12 @@ test("real PostgreSQL tenant isolation across all Prisma operations", { skip: !e
 
     await assert.rejects(() => a.student.update({ where: { id: recordB }, data: { fullName: "Must not update B" } }));
     assert.equal((await a.student.updateMany({ where: { id: recordB }, data: { fullName: "Must not update B" } })).count, 0, "updateMany");
-    await assert.rejects(() => a.student.upsert({ where: { id: recordB }, create: { id: recordB, schoolId: schoolB, admissionNo: recordB, fullName: "Must not recreate B" }, update: { fullName: "Must not update B" } }));
+    const upserted = await a.student.upsert({
+      where: { id: recordB },
+      create: { id: `upsert-a-${randomUUID()}`, schoolId: schoolB, admissionNo: `upsert-${randomUUID()}`, fullName: "Synthetic scoped upsert" },
+      update: { fullName: "Must not update B" },
+    });
+    assert.equal(upserted.schoolId, schoolA, "upsert create forces active scope");
     await assert.rejects(() => a.student.delete({ where: { id: recordB } }));
     assert.equal((await a.student.deleteMany({ where: { id: recordB } })).count, 0, "deleteMany");
 

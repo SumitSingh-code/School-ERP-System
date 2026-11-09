@@ -20,7 +20,7 @@
 
 ## Local setup
 
-Copy `.env.example` to `.env` and provide Supabase pooled/direct database URLs plus the server-only Supabase key. Run `npm install`, `npx prisma generate`, `npx prisma migrate dev`, `npm run db:seed`, then `npm run dev`. Run the separate worker with `npm run worker`; it uses the direct/session database connection so PostgreSQL job coordination is reliable.
+Copy `.env.example` to `.env` and provide Supabase pooled/direct database URLs plus the server-only Supabase key. Run `npm install`, `npm run db:generate`, and `npm run db:migrate`. Only on a disposable local/test database, explicitly set `ALLOW_SYNTHETIC_SEED=true` before `npm run db:seed`, then start with `npm run dev`. Run the separate worker with `npm run worker`; it uses the direct/session database connection so PostgreSQL job coordination is reliable. Production uses `npm run db:deploy` with the direct URL. The seed command refuses to run in production or without the explicit opt-in.
 
 ## Demo checklist
 
@@ -36,7 +36,7 @@ Other approved rules: guardian phone is unique per guardian; siblings link to on
 
 Docker is unavailable in the current development environment. To exercise the real database suite against a dedicated, empty Supabase test project:
 
-1. In Supabase SQL Editor, run `supabase/phase-0.5-schema.sql` once on an empty project, then run `supabase/audit-append-only.sql` and `supabase/phase-0.5-seed.sql`. Both school and student rows are synthetic.
+1. CI provisions a disposable PostgreSQL service, applies the versioned Prisma migrations, runs the synthetic seed, then runs both two-school isolation suites. For an empty Supabase test project, use `npm run db:deploy` with its direct connection URL; for SQL Editor setup, run `supabase/phase-0.5-schema.sql`, `supabase/audit-append-only.sql`, and `supabase/phase-0.5-seed.sql` once.
 2. Copy the project's pooled transaction URL to `DATABASE_URL` (include `?pgbouncer=true`) and its direct/session URL to `DIRECT_URL` in a local `.env` file. Keep that file private.
 3. Run `npm run db:generate`, `npm run test:db` with `TENANT_DB_TEST=1`, then `npm test`, `npm run lint`, `npm run typecheck`, `npx prisma validate`, and `npm run build`.
 
