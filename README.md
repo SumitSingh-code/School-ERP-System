@@ -8,7 +8,7 @@
 - **Tenant isolation:** Prisma connects as a direct database user, so Supabase RLS is not the isolation boundary. App queries must go through a school-scoped Prisma wrapper/extension that requires `schoolId`; unscoped access fails closed. Server-side role/capability checks are also required.
 - **Worker:** Separate TypeScript Node process using pg-boss backed by PostgreSQL. Imports, PDF generation and reminders run as jobs, never in web requests.
 - **Auth/secrets:** App-managed auth skeleton and capabilities. Supabase service key is server-only and must never be sent to the browser or committed.
-- **Notifications blocker:** SMS fallback waits for TRAI DLT sender ID and template registration. Phase 0 focuses on in-app notifications; push/WhatsApp can be added before SMS.
+- **OTP/SMS provider:** 2Factor is the selected Indian SMS adapter. Their current listed Starter price is ₹0.15/SMS; delivery is paid, not free. Production use is blocked until the school has its provider account, DLT sender/header and approved login template. The API key stays server-side. Provider setup is documented below.
 
 ## Phase 0 plan and acceptance
 
@@ -51,5 +51,8 @@ The integration suite creates and removes uniquely named synthetic fixtures and 
 - Protected route handlers use the shared session/capability/school-scope wrapper. Login is the only public auth route.
 - `supabase/phase-0.5-auth-lockout.sql` upgrades an existing database with the login lockout field. The full schema SQL already includes it for a fresh database.
 - Initial production setup uses `npm run provision:director` from a private terminal after applying the schema. It asks for the school and Director details, hides the password while typing, seeds reference roles/capabilities, and refuses to run if any school already exists.
+- 2Factor integration is isolated behind `src/lib/sms/provider.ts`. Add `TWOFACTOR_API_KEY` and `TWOFACTOR_LOGIN_TEMPLATE` only to private deployment environment settings after registering the sender and template with DLT. Neither variable belongs in `NEXT_PUBLIC_*` or Git. OTP delivery is intentionally unavailable until those values are set; no test code is sent to real numbers.
+
+Provider cost notes (checked 9 November 2026): 2Factor lists a ₹0.15/SMS Starter rate and DLT assistance. Firebase Phone Auth bills for each SMS and does not include phone SMS in its no-cost Spark plan, so it is not the cheaper production option for this India-first product. Provider prices and terms can change; verify them before procurement.
 
 This is foundation work, not a customer release. Staff and parent OTP, device management, domain workflows, and their real-Postgres permission/IDOR tests remain required before customer use. Production OTP delivery needs a DLT-compliant Indian SMS provider; no OTP is sent by a fake or hardcoded production path.
