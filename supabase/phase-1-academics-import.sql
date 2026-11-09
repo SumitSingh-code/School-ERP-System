@@ -189,21 +189,24 @@ SELECT gen_random_uuid()::text, source."schoolId", source."className",
             WHEN upper(source."className") = 'UKG' THEN 2
             ELSE 99 END,
        true, CURRENT_TIMESTAMP
-FROM (SELECT DISTINCT "schoolId", "className" FROM "Section") AS source
-ON CONFLICT ("schoolId", "name") DO NOTHING;
+FROM (SELECT DISTINCT "schoolId", "className" FROM "Section") AS source;
 
 INSERT INTO "AcademicYear" ("id", "schoolId", "label", "startsOn", "endsOn", "isCurrent", "updatedAt")
-SELECT source."academicYearId", source."schoolId", left(source."academicYearId", 12),
+SELECT gen_random_uuid()::text, source."schoolId", left(source."academicYearId", 12),
        make_date(CASE WHEN source."academicYearId" ~ '^20[0-9]{2}(-[0-9]{2,4})?$' THEN substring(source."academicYearId" from 1 for 4)::integer ELSE extract(year FROM CURRENT_DATE)::integer END, 4, 1),
        make_date((CASE WHEN source."academicYearId" ~ '^20[0-9]{2}(-[0-9]{2,4})?$' THEN substring(source."academicYearId" from 1 for 4)::integer ELSE extract(year FROM CURRENT_DATE)::integer END) + 1, 3, 31),
        false, CURRENT_TIMESTAMP
-FROM (SELECT DISTINCT "schoolId", "academicYearId" FROM "Section") AS source
-ON CONFLICT DO NOTHING;
+FROM (SELECT DISTINCT "schoolId", "academicYearId" FROM "Section") AS source;
 
 UPDATE "Section" AS section
 SET "classLevelId" = class."id"
 FROM "ClassLevel" AS class
 WHERE class."schoolId" = section."schoolId" AND class."name" = section."className";
+
+UPDATE "Section" AS section
+SET "academicYearId" = year."id"
+FROM "AcademicYear" AS year
+WHERE year."schoolId" = section."schoolId" AND year."label" = left(section."academicYearId", 12);
 
 ALTER TABLE "Section" ALTER COLUMN "classLevelId" SET NOT NULL;
 ALTER TABLE "Section" DROP COLUMN "className";
