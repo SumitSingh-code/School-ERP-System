@@ -5,6 +5,10 @@ const tenantModels = new Set([
   "School", "User", "UserRole", "Session", "AuthDevice", "OtpChallenge", "AuditLog",
   "Student", "Guardian", "StudentGuardian", "Section", "TimetableEntry",
 ]);
+const whereOperations = new Set([
+  "findFirst", "findFirstOrThrow", "findUnique", "findUniqueOrThrow", "findMany",
+  "count", "aggregate", "groupBy", "update", "updateMany", "delete", "deleteMany", "upsert",
+]);
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -22,7 +26,7 @@ export function scopeOperationArgs<T extends Record<string, unknown>>(
 
   const tenantField = model === "School" ? "id" : "schoolId";
   const scoped = { ...args } as Record<string, unknown>;
-  if ("where" in scoped) scoped.where = { ...asRecord(scoped.where), [tenantField]: schoolId };
+  if (whereOperations.has(operation)) scoped.where = { ...asRecord(scoped.where), [tenantField]: schoolId };
   if (["create", "createMany", "createManyAndReturn"].includes(operation)) {
     const force = (row: unknown) => ({ ...asRecord(row), [tenantField]: schoolId });
     scoped.data = Array.isArray(scoped.data) ? scoped.data.map(force) : force(scoped.data);

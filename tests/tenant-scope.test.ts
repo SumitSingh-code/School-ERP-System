@@ -25,6 +25,9 @@ test("School A repository cannot return School B records", async () => {
 });
 
 test("Prisma operation scope stays top-level for unique selectors and cannot be changed by create/update data", () => {
+  assert.deepEqual(scopeOperationArgs("Student", "findMany", {}, "school-a"), {
+    where: { schoolId: "school-a" },
+  });
   assert.deepEqual(scopeOperationArgs("Student", "findUnique", { where: { id: "student-b", schoolId: "school-b" } }, "school-a"), {
     where: { id: "student-b", schoolId: "school-a" },
   });
