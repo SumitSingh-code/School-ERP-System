@@ -15,7 +15,7 @@ enum UserStatus {
 }
 
 model User {
-  id                 String     @id @default(cuid())
+  id                 String     @id @default(uuid())
   schoolId           String
   name               String
   phone              String     @unique
@@ -23,6 +23,7 @@ model User {
   status             UserStatus @default(ACTIVE)
   mustChangePassword Boolean    @default(false)
   failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?
   roles              UserRole[]
   sessions           Session[]
   auditLogs          AuditLog[]
@@ -34,14 +35,14 @@ model User {
 }
 
 model Role {
-  id           String           @id @default(cuid())
+  id           String           @id @default(uuid())
   name         String           @unique
   assignments  UserRole[]
   capabilities RoleCapability[]
 }
 
 model Capability {
-  id    String           @id @default(cuid())
+  id    String           @id @default(uuid())
   key   String           @unique
   roles RoleCapability[]
 }
@@ -66,7 +67,7 @@ model RoleCapability {
 }
 
 model Session {
-  id               String    @id @default(cuid())
+  id               String    @id @default(uuid())
   userId           String
   schoolId         String
   user             User      @relation(fields: [userId, schoolId], references: [id, schoolId])
@@ -79,7 +80,7 @@ model Session {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   actorId    String?
   schoolId   String
   actor      User?    @relation(fields: [actorId, schoolId], references: [id, schoolId])
@@ -93,13 +94,13 @@ model AuditLog {
 }
 
 model School {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   name      String
   createdAt DateTime @default(now())
 }
 
 model Student {
-  id          String            @id @default(cuid())
+  id          String            @id @default(uuid())
   schoolId    String
   admissionNo String
   fullName    String
@@ -112,7 +113,7 @@ model Student {
 }
 
 model Guardian {
-  id        String            @id @default(cuid())
+  id        String            @id @default(uuid())
   schoolId  String
   name      String
   phone     String            @unique
@@ -136,7 +137,7 @@ model StudentGuardian {
 }
 
 model Section {
-  id             String @id @default(cuid())
+  id             String @id @default(uuid())
   schoolId       String
   name           String
   className      String
@@ -146,7 +147,7 @@ model Section {
 }
 
 model TimetableEntry {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   schoolId        String
   sectionId       String
   dayOfWeek       Int

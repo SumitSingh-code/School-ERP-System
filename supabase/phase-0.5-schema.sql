@@ -14,6 +14,7 @@ CREATE TABLE "User" (
     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
     "failedLoginCount" INTEGER NOT NULL DEFAULT 0,
+    "lockedUntil" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),

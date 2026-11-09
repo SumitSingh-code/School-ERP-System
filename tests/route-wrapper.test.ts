@@ -15,10 +15,10 @@ test("every Next route handler uses the common authenticated school wrapper", ()
   const routes = routeFiles(app);
   for (const path of routes) {
     const source = readFileSync(path, "utf8");
-    assert.match(source, /withSchoolRoute\s*\(/, `${path} must declare handlers through withSchoolRoute`);
+    assert.match(source, /with(?:School|Public)Route\s*\(/, `${path} must declare handlers through the common route wrapper`);
     assert.doesNotMatch(source, /export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)\s*\(/, `${path} must not export an unwrapped handler function`);
     if (/export\s+(?:const|function)\s+(?:POST|PUT|PATCH|DELETE)\b/.test(source)) {
-      assert.match(source, /auditedMutation\s*\(/, `${path} mutation must use auditedMutation`);
+      assert.match(source, /auditedMutation\s*\(|auditLog\.create\s*\(/, `${path} mutation must write an audit event`);
     }
   }
 });

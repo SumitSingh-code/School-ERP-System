@@ -41,3 +41,14 @@ Docker is unavailable in the current development environment. To exercise the re
 3. Run `npm run db:generate`, `npm run test:db` with `TENANT_DB_TEST=1`, then `npm test`, `npm run lint`, `npm run typecheck`, `npx prisma validate`, and `npm run build`.
 
 The integration suite creates and removes uniquely named synthetic fixtures and checks all requested Prisma operations. It does not run unless `TENANT_DB_TEST=1` is explicitly set. Never point it at production data.
+
+## Authentication foundation status
+
+- The root page now requires a staff phone/password session; account creation is closed.
+- Password checks use Argon2id, successful and failed sign-ins are audited, and five failed attempts start a 15-minute lock window.
+- A user can switch only among roles assigned to that user's session. The active role change is audited server-side.
+- Protected route handlers use the shared session/capability/school-scope wrapper. Login is the only public auth route.
+- `supabase/phase-0.5-auth-lockout.sql` upgrades an existing database with the login lockout field. The full schema SQL already includes it for a fresh database.
+- Initial production setup uses `npm run provision:director` from a private terminal after applying the schema. It asks for the school and Director details, hides the password while typing, seeds reference roles/capabilities, and refuses to run if any school already exists.
+
+This is foundation work, not a customer release. Staff and parent OTP, rotating access/refresh sessions, device management, account provisioning, domain workflows, and their real-Postgres permission/IDOR tests remain required before customer use. Production OTP delivery needs a DLT-compliant Indian SMS provider; no OTP is sent by a fake or hardcoded production path.
