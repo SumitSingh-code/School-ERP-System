@@ -73,7 +73,7 @@ export const POST = withPublicRoute(async (request: NextRequest) => {
 
     const user = await tx.user.findFirst({
       where: { id: challenge.userId, schoolId: challenge.schoolId, status: "ACTIVE", deletedAt: null },
-      include: { roles: { include: { role: true } } },
+      include: { roles: { where: { deletedAt: null }, include: { role: true } } },
     });
     const roleStillAssigned = hasAssignedSchoolRole(user?.roles.map((assignment) => ({
       schoolId: assignment.schoolId,

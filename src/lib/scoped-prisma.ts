@@ -3,7 +3,10 @@ import { PrismaClient } from "@prisma/client";
 const unscopedModels = new Set(["Role", "Capability", "RoleCapability"]);
 const tenantModels = new Set([
   "School", "User", "UserRole", "Session", "AuthDevice", "OtpChallenge", "AuditLog",
-  "Student", "Guardian", "StudentGuardian", "Section", "TimetableEntry",
+  "Student", "Guardian", "StudentGuardian", "Section", "TimetableEntry", "AcademicYear",
+  "ClassLevel", "Stream", "StudyGroup", "Subject", "ClassSubject", "ImportBatch", "ImportRecord",
+  "LedgerEntry",
+  "ClassTeacherAssignment",
 ]);
 const whereOperations = new Set([
   "findFirst", "findFirstOrThrow", "findUnique", "findUniqueOrThrow", "findMany",

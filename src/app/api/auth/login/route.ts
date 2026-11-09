@@ -56,7 +56,7 @@ export const POST = withPublicRoute(async (request: NextRequest) => {
   }
 
   const assignments = await prisma.userRole.findMany({
-    where: { userId: user.id, schoolId: user.schoolId },
+    where: { userId: user.id, schoolId: user.schoolId, deletedAt: null },
     include: { role: true },
     orderBy: { roleId: "asc" },
   });

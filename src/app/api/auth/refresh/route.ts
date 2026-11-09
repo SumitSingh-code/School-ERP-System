@@ -21,7 +21,7 @@ export const POST = withPublicRoute(async (request: NextRequest) => {
   const oldHash = createHash("sha256").update(refreshToken).digest("hex");
   const session = await prisma.session.findFirst({
     where: { refreshTokenHash: oldHash, revokedAt: null },
-    include: { user: { include: { roles: { include: { role: true } } } } },
+    include: { user: { include: { roles: { where: { deletedAt: null }, include: { role: true } } } } },
   });
   if (!session) return NextResponse.json({ error: "Session was already refreshed or revoked" }, { status: 409 });
   const now = new Date();

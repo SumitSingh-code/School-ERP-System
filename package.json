@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "test:db": "tsx --test tests/tenant-isolation.integration.test.ts",
+    "test:db": "tsx --test tests/*.integration.test.ts",
     "worker": "tsx src/worker/index.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

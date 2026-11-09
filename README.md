@@ -62,3 +62,30 @@ The integration suite creates and removes uniquely named synthetic fixtures and 
 Provider cost notes (checked 9 November 2026): 2Factor lists a ₹0.15/SMS Starter rate and DLT assistance. Firebase Phone Auth bills for each SMS and does not include phone SMS in its no-cost Spark plan, so it is not the cheaper production option for this India-first product. Provider prices and terms can change; verify them before procurement.
 
 This remains foundation work, not a customer release. Parent OTP, active-device management/revocation screens, domain workflows, and real-Postgres permission/IDOR tests still remain. Production staff OTP needs the school’s DLT-approved sender/template and private 2Factor credentials; no OTP is sent by a fake or hardcoded production path.
+
+## Current build: Phase 1 academic setup and imports
+
+Phase 1 adds editable academic years, class levels, senior streams and elective groups, subjects and class-subject links, sections, student roster imports, staff account imports and teacher assignment during staff import. Imports are preview-first, with persistent batch history and guarded rollback. Student imports link guardians by unique phone and record prior dues as append-only ledger entries. Staff CSV passwords are Argon2id hashes and imported accounts must change their initial password.
+
+Set `IMPORT_PREVIEW_SECRET` to a private random value of at least 32 characters in local and deployment environments before using import preview. Do not set it with a `NEXT_PUBLIC_` prefix. A preview token expires after 30 minutes and is bound to its school, user, CSV content and import type.
+
+The exact laptop and phone walkthrough is in [`docs/phase-1-demo.md`](docs/phase-1-demo.md). The PWA caches only its manifest, icons and generic offline page. It does not cache private school records; offline attendance is implemented in a later phase.
+
+### Apply the Phase 1 database migration
+
+On a fresh database, run the normal Prisma flow: `npm run db:deploy`. On a database already initialized from the Phase 0.5 SQL files in Supabase SQL Editor, open `supabase/phase-1-academics-import.sql` and run the complete file once. The SQL file is a copy of the versioned Prisma migration at `prisma/migrations/20261109120000_phase_1_academics_import/migration.sql`. Do not run both paths against the same database. For SQL Editor upgrades, keep Prisma migration history aligned before using `npm run db:deploy` against that database.
+
+After applying the migration, run `npm run db:generate`, then initialize each school with `npm run provision:director` for a new production database or `npm run db:seed` only on an explicitly disposable synthetic test database. The academic screen is available at `/academic`; student and staff CSV tools are at `/imports` for roles with the relevant capabilities. Download templates from those pages, review all preview errors and warnings, then explicitly confirm. Import rollback is allowed only while imported records are unchanged and unused; opening-balance entries are reversed rather than deleted.
+
+## Planned product phases
+
+- **Phase 0.5 — Hardening:** real PostgreSQL tenant-isolation tests for all Prisma operations, raw SQL guardrails, common route wrapper enforcement, migrations and synthetic seed on a disposable database.
+- **Phase 1 — Academic setup and imports:** academic years/classes/streams/groups/subjects/sections, preview-confirm student and staff imports, rollback safeguards.
+- **Phase 2 — Staff assignments, timetable and holidays.**
+- **Phase 3 — Attendance, offline sync and parent notifications.**
+- **Phase 4 — Fees, ledger, receipts, day close and reports.**
+- **Phase 5 — Tests, exams, marks and report cards.**
+- **Phase 6 — Notices, parent app and role dashboards.**
+- **Phase 7 — Inactive students, year rollover and pilot hardening.**
+
+Each feature phase will be gated by tests, lint, typecheck, Prisma validation and production build, with demo steps and a changelog. Current implementation is still in progress and is not a customer release until all required workflows and release checks are complete.

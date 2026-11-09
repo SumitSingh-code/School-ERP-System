@@ -49,6 +49,7 @@ test("Prisma operation scope stays top-level for unique selectors and cannot be 
 test("authorization requires the requested capability", () => {
   const principal = { userId: "demo-user", schoolId: "school-a", activeRole: "teacher", capabilities: new Set(["attendance.mark"]) };
   assert.equal(requireCapability(principal, "attendance.mark"), principal);
+  assert.throws(() => requireCapability(principal, "student.import"), /Forbidden/);
   assert.throws(() => requireCapability(principal, "fees.collect"), /Forbidden/);
   assert.throws(() => requireCapability(null, "student.read"), /Authentication required/);
 });

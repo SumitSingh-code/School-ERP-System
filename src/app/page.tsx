@@ -4,6 +4,7 @@ import { getCurrentPrincipal } from "@/lib/with-school-route";
 import { prisma } from "@/lib/prisma";
 import { SignInForm } from "./sign-in-form";
 import { RoleControls } from "./role-controls";
+import { ChangePasswordForm } from "./change-password-form";
 
 export default function Home() {
   return <Suspense fallback={<main className="min-h-screen bg-[#f5f7f4] p-5" aria-busy="true"><div className="mx-auto max-w-6xl animate-pulse"><div className="h-8 w-48 rounded bg-slate-200" /><div className="mt-8 h-36 rounded-2xl bg-white" /></div></main>}><DashboardContent /></Suspense>;
@@ -23,6 +24,15 @@ async function DashboardContent() {
       </section>
     </main>;
   }
+
+  if (principal.mustChangePassword) return <main className="flex min-h-screen items-center justify-center bg-[#f5f7f4] px-4 py-10 text-slate-950">
+    <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-9">
+      <p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-800">School ERP</p>
+      <h1 className="mt-3 text-2xl font-bold tracking-tight">Set your private password</h1>
+      <p className="mt-2 text-sm leading-6 text-slate-600">Your school gave you a temporary password. Change it before opening any school records.</p>
+      <ChangePasswordForm />
+    </section>
+  </main>;
 
   let schoolName = "Your school";
   let studentsCount: number | null = null;
@@ -75,6 +85,8 @@ async function DashboardContent() {
           <p className="mt-2 text-sm leading-6 text-slate-600">There are no student or section records yet. Add your school structure and import your roster before using daily school workflows.</p>
         </section>}
       </>}
+      {principal.capabilities.has("academic.manage") && <a href="/academic" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-900 px-5 font-semibold text-white">Manage academic setup</a>}
+      {principal.capabilities.has("student.import") && <a href="/imports" className="ml-3 mt-6 inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-900 bg-white px-5 font-semibold text-emerald-950">Import students</a>}
     </section>
   </main>;
 }

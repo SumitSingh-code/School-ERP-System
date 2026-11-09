@@ -15,23 +15,26 @@ enum UserStatus {
 }
 
 model User {
-  id                 String     @id @default(uuid())
-  schoolId           String
-  name               String
-  phone              String     @unique
-  passwordHash       String?
-  status             UserStatus @default(ACTIVE)
-  mustChangePassword Boolean    @default(false)
-  failedLoginCount   Int        @default(0)
-  lockedUntil        DateTime?
-  roles              UserRole[]
-  sessions           Session[]
-  devices            AuthDevice[]
-  otpChallenges      OtpChallenge[]
-  auditLogs          AuditLog[]
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  deletedAt          DateTime?
+  id                      String                   @id @default(uuid())
+  schoolId                String
+  name                    String
+  phone                   String                   @unique
+  passwordHash            String?
+  status                  UserStatus               @default(ACTIVE)
+  mustChangePassword      Boolean                  @default(false)
+  failedLoginCount        Int                      @default(0)
+  lockedUntil             DateTime?
+  roles                   UserRole[]
+  sessions                Session[]
+  devices                 AuthDevice[]
+  otpChallenges           OtpChallenge[]
+  importRecords           ImportRecord[]
+  ledgerEntries           LedgerEntry[]
+  classTeacherAssignments ClassTeacherAssignment[]
+  auditLogs               AuditLog[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  deletedAt               DateTime?
 
   @@unique([id, schoolId])
 }
@@ -50,11 +53,14 @@ model Capability {
 }
 
 model UserRole {
-  userId   String
-  roleId   String
-  schoolId String
-  user     User   @relation(fields: [userId, schoolId], references: [id, schoolId])
-  role     Role   @relation(fields: [roleId], references: [id])
+  userId    String
+  roleId    String
+  schoolId  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  user      User      @relation(fields: [userId, schoolId], references: [id, schoolId])
+  role      Role      @relation(fields: [roleId], references: [id])
 
   @@id([userId, roleId])
 }
@@ -69,53 +75,53 @@ model RoleCapability {
 }
 
 model Session {
-  id               String    @id @default(uuid())
+  id               String      @id @default(uuid())
   userId           String
   schoolId         String
-  user             User      @relation(fields: [userId, schoolId], references: [id, schoolId])
+  user             User        @relation(fields: [userId, schoolId], references: [id, schoolId])
   activeRole       String
   deviceName       String?
   authDeviceId     String?
   authDevice       AuthDevice? @relation(fields: [authDeviceId], references: [id])
-  accessTokenHash  String?   @unique
+  accessTokenHash  String?     @unique
   accessExpiresAt  DateTime?
-  refreshTokenHash String    @unique
+  refreshTokenHash String      @unique
   expiresAt        DateTime
-  lastActivityAt   DateTime  @default(now())
+  lastActivityAt   DateTime    @default(now())
   revokedAt        DateTime?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime    @default(now())
 }
 
 model AuthDevice {
-  id           String         @id @default(uuid())
-  userId       String
-  schoolId     String
-  user         User           @relation(fields: [userId, schoolId], references: [id, schoolId])
-  tokenHash    String         @unique
-  otpVerified  Boolean        @default(false)
-  label        String?
-  lastUsedAt   DateTime       @default(now())
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  createdAt    DateTime       @default(now())
-  sessions     Session[]
+  id          String    @id @default(uuid())
+  userId      String
+  schoolId    String
+  user        User      @relation(fields: [userId, schoolId], references: [id, schoolId])
+  tokenHash   String    @unique
+  otpVerified Boolean   @default(false)
+  label       String?
+  lastUsedAt  DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  sessions    Session[]
 
   @@unique([id, schoolId])
   @@index([userId, schoolId, revokedAt])
 }
 
 model OtpChallenge {
-  id          String   @id @default(uuid())
-  userId      String
-  schoolId    String
-  user        User     @relation(fields: [userId, schoolId], references: [id, schoolId])
-  activeRole  String
-  codeHash    String
-  ipHash      String
-  attempts    Int      @default(0)
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(uuid())
+  userId     String
+  schoolId   String
+  user       User      @relation(fields: [userId, schoolId], references: [id, schoolId])
+  activeRole String
+  codeHash   String
+  ipHash     String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@unique([id, schoolId])
   @@index([userId, createdAt])
@@ -142,17 +148,134 @@ model School {
   createdAt DateTime @default(now())
 }
 
+model AcademicYear {
+  id                      String                   @id @default(uuid())
+  schoolId                String
+  label                   String
+  startsOn                DateTime                 @db.Date
+  endsOn                  DateTime                 @db.Date
+  isCurrent               Boolean                  @default(false)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  deletedAt               DateTime?
+  sections                Section[]
+  classTeacherAssignments ClassTeacherAssignment[]
+
+  @@unique([schoolId, label])
+  @@unique([id, schoolId])
+  @@index([schoolId, isCurrent])
+}
+
+model ClassLevel {
+  id        String         @id @default(uuid())
+  schoolId  String
+  name      String
+  sortOrder Int
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  deletedAt DateTime?
+  streams   Stream[]
+  subjects  ClassSubject[]
+  sections  Section[]
+
+  @@unique([schoolId, name])
+  @@unique([id, schoolId])
+  @@index([schoolId, sortOrder])
+}
+
+model Stream {
+  id           String         @id @default(uuid())
+  schoolId     String
+  classLevelId String
+  name         String
+  active       Boolean        @default(true)
+  classLevel   ClassLevel     @relation(fields: [classLevelId, schoolId], references: [id, schoolId])
+  groups       StudyGroup[]
+  subjects     ClassSubject[]
+  sections     Section[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([schoolId, classLevelId, name])
+  @@unique([id, schoolId])
+  @@unique([id, schoolId, classLevelId])
+}
+
+model StudyGroup {
+  id        String         @id @default(uuid())
+  schoolId  String
+  streamId  String
+  name      String
+  active    Boolean        @default(true)
+  stream    Stream         @relation(fields: [streamId, schoolId], references: [id, schoolId])
+  subjects  ClassSubject[]
+  sections  Section[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  deletedAt DateTime?
+
+  @@unique([schoolId, streamId, name])
+  @@unique([id, schoolId])
+  @@unique([id, schoolId, streamId])
+}
+
+model Subject {
+  id        String         @id @default(uuid())
+  schoolId  String
+  name      String
+  code      String
+  optional  Boolean        @default(false)
+  active    Boolean        @default(true)
+  subjects  ClassSubject[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  deletedAt DateTime?
+
+  @@unique([schoolId, code])
+  @@unique([id, schoolId])
+}
+
+model ClassSubject {
+  id           String      @id @default(uuid())
+  schoolId     String
+  classLevelId String
+  streamId     String?
+  groupId      String?
+  subjectId    String
+  classLevel   ClassLevel  @relation(fields: [classLevelId, schoolId], references: [id, schoolId])
+  stream       Stream?     @relation(fields: [streamId, schoolId, classLevelId], references: [id, schoolId, classLevelId])
+  group        StudyGroup? @relation(fields: [groupId, schoolId, streamId], references: [id, schoolId, streamId])
+  subject      Subject     @relation(fields: [subjectId, schoolId], references: [id, schoolId])
+  createdAt    DateTime    @default(now())
+
+  @@unique([schoolId, classLevelId, streamId, groupId, subjectId])
+  @@unique([id, schoolId])
+}
+
 model Student {
-  id          String            @id @default(uuid())
-  schoolId    String
-  admissionNo String
-  fullName    String
-  status      String            @default("ACTIVE")
-  guardians   StudentGuardian[]
+  id               String            @id @default(uuid())
+  schoolId         String
+  admissionNo      String
+  fullName         String
+  status           String            @default("ACTIVE")
+  dateOfBirth      DateTime?         @db.Date
+  gender           String?
+  address          String?
+  paymentPlanLabel String?
+  sectionId        String?
+  section          Section?          @relation(fields: [sectionId, schoolId], references: [id, schoolId])
+  guardians        StudentGuardian[]
+  ledgerEntries    LedgerEntry[]
+  deletedAt        DateTime?
+  updatedAt        DateTime          @updatedAt
+  createdAt        DateTime          @default(now())
 
   @@unique([schoolId, admissionNo])
   @@unique([id, schoolId])
   @@index([schoolId])
+  @@index([schoolId, sectionId])
 }
 
 model Guardian {
@@ -162,6 +285,7 @@ model Guardian {
   phone     String            @unique
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  deletedAt DateTime?
   students  StudentGuardian[]
 
   @@unique([id, schoolId])
@@ -172,21 +296,118 @@ model StudentGuardian {
   guardianId String
   schoolId   String
   relation   String
-  isPrimary  Boolean  @default(false)
-  student    Student  @relation(fields: [studentId, schoolId], references: [id, schoolId])
-  guardian   Guardian @relation(fields: [guardianId, schoolId], references: [id, schoolId])
+  isPrimary  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  student    Student   @relation(fields: [studentId, schoolId], references: [id, schoolId])
+  guardian   Guardian  @relation(fields: [guardianId, schoolId], references: [id, schoolId])
 
   @@id([studentId, guardianId])
 }
 
 model Section {
-  id             String @id @default(uuid())
-  schoolId       String
-  name           String
-  className      String
-  academicYearId String
+  id                     String                   @id @default(uuid())
+  schoolId               String
+  name                   String
+  classLevelId           String
+  streamId               String?
+  groupId                String?
+  academicYearId         String
+  active                 Boolean                  @default(true)
+  classLevel             ClassLevel               @relation(fields: [classLevelId, schoolId], references: [id, schoolId])
+  stream                 Stream?                  @relation(fields: [streamId, schoolId, classLevelId], references: [id, schoolId, classLevelId])
+  group                  StudyGroup?              @relation(fields: [groupId, schoolId, streamId], references: [id, schoolId, streamId])
+  academicYear           AcademicYear             @relation(fields: [academicYearId, schoolId], references: [id, schoolId])
+  students               Student[]
+  classTeacherAssignment ClassTeacherAssignment[]
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  deletedAt              DateTime?
 
+  @@unique([schoolId, academicYearId, classLevelId, streamId, groupId, name])
+  @@unique([id, schoolId])
   @@index([schoolId])
+}
+
+model ImportBatch {
+  id            String         @id @default(uuid())
+  schoolId      String
+  actorId       String
+  activeRole    String
+  kind          String
+  fileName      String
+  rowCount      Int
+  createdCount  Int
+  updatedCount  Int
+  status        String         @default("COMPLETED")
+  rolledBackAt  DateTime?
+  createdAt     DateTime       @default(now())
+  records       ImportRecord[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([id, schoolId])
+  @@index([schoolId, createdAt])
+}
+
+model ClassTeacherAssignment {
+  id             String       @id @default(uuid())
+  schoolId       String
+  academicYearId String
+  sectionId      String
+  userId         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  academicYear   AcademicYear @relation(fields: [academicYearId, schoolId], references: [id, schoolId])
+  section        Section      @relation(fields: [sectionId, schoolId], references: [id, schoolId])
+  staff          User         @relation(fields: [userId, schoolId], references: [id, schoolId])
+
+  @@unique([id, schoolId])
+  @@index([schoolId, academicYearId, sectionId])
+  @@index([schoolId, academicYearId, userId])
+  @@index([schoolId, userId, academicYearId])
+}
+
+model LedgerEntry {
+  id            String        @id @default(uuid())
+  schoolId      String
+  studentId     String
+  createdBy     String
+  importBatchId String?
+  entryType     String
+  amountPaise   BigInt
+  description   String
+  reversalOfId  String?
+  createdAt     DateTime      @default(now())
+  student       Student       @relation(fields: [studentId, schoolId], references: [id, schoolId])
+  actor         User          @relation(fields: [createdBy, schoolId], references: [id, schoolId])
+  importBatch   ImportBatch?  @relation(fields: [importBatchId, schoolId], references: [id, schoolId])
+  reversalOf    LedgerEntry?  @relation("LedgerReversal", fields: [reversalOfId, schoolId], references: [id, schoolId])
+  reversals     LedgerEntry[] @relation("LedgerReversal")
+
+  @@unique([id, schoolId])
+  @@index([schoolId, studentId, createdAt])
+  @@index([schoolId, importBatchId])
+}
+
+model ImportRecord {
+  id             String      @id @default(uuid())
+  schoolId       String
+  batchId        String
+  targetType     String
+  targetId       String
+  operation      String
+  beforeValue    Json?
+  afterUpdatedAt DateTime
+  isUsed         Boolean     @default(false)
+  batch          ImportBatch @relation(fields: [batchId, schoolId], references: [id, schoolId])
+  actor          User        @relation(fields: [actorId, schoolId], references: [id, schoolId])
+  actorId        String
+  createdAt      DateTime    @default(now())
+
+  @@unique([batchId, targetType, targetId])
+  @@index([schoolId, targetType, targetId])
 }
 
 model TimetableEntry {

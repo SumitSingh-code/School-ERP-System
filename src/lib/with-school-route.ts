@@ -17,6 +17,7 @@ async function principalForToken(token: string | undefined) {
       user: {
         include: {
           roles: {
+            where: { deletedAt: null },
             include: {
               role: {
                 include: {
@@ -39,6 +40,7 @@ async function principalForToken(token: string | undefined) {
     roles: session.user.roles.filter(({ schoolId }) => schoolId === session.schoolId).map(({ role }) => role.name),
     name: session.user.name,
     capabilities: new Set(activeAssignment.role.capabilities.map(({ capability }) => capability.key)),
+    mustChangePassword: session.user.mustChangePassword,
   };
 }
 
@@ -56,12 +58,15 @@ type ScopedContext = { principal: NonNullable<Awaited<ReturnType<typeof verifySe
 type RouteHandler = (request: NextRequest, context: RouteContext, scope: ScopedContext) => Promise<Response>;
 
 /** Required wrapper for protected route handlers: session, capability and school-scoped client. */
-export function withSchoolRoute(capability: Capability | null, handler: RouteHandler) {
+export function withSchoolRoute(capability: Capability | null, handler: RouteHandler, options: { allowPasswordChange?: boolean } = {}) {
   return async (request: NextRequest, context: RouteContext) => {
     const principal = await verifySession(request);
     if (!principal) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     if (!principal.schoolId || (capability !== null && !principal.capabilities.has(capability))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (principal.mustChangePassword && !options.allowPasswordChange) {
+      return NextResponse.json({ error: "Change your password before using school records", code: "PASSWORD_CHANGE_REQUIRED" }, { status: 403 });
     }
     return handler(request, context, { principal, db: forSchool(prisma, principal.schoolId) });
   };
