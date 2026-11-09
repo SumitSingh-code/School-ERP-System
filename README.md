@@ -32,6 +32,8 @@ Copy `.env.example` to `.env` and provide Supabase pooled/direct database URLs p
 
 Other approved rules: guardian phone is unique per guardian; siblings link to one guardian. Parents see “Not marked yet” until a section submission exists; offline drafts are teacher-only. Import rollback is allowed only while imported records have not been edited or used.
 
+The local synthetic seed creates 1,000 students (including a twin pair and one inactive record), 900 guardian records, 1,000 student-guardian links (100 sibling pairs), and 60 staff role assignments. Synthetic contact identifiers start with `SYNTHETIC-` and are not real phone numbers. Seeded staff have no passwords and are data fixtures, not sign-in accounts.
+
 ## Phase 0.5 database verification
 
 Docker is unavailable in the current development environment. To exercise the real database suite against a dedicated, empty Supabase test project:
