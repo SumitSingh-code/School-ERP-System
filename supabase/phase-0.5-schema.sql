@@ -62,8 +62,11 @@ CREATE TABLE "Session" (
     "schoolId" TEXT NOT NULL,
     "activeRole" TEXT NOT NULL,
     "deviceName" TEXT,
+    "accessTokenHash" TEXT,
+    "accessExpiresAt" TIMESTAMP(3),
     "refreshTokenHash" TEXT NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
+    "lastActivityAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "revokedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -170,6 +173,7 @@ CREATE UNIQUE INDEX "Capability_key_key" ON "Capability"("key");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Session_refreshTokenHash_key" ON "Session"("refreshTokenHash");
+CREATE UNIQUE INDEX "Session_accessTokenHash_key" ON "Session"("accessTokenHash");
 
 -- CreateIndex
 CREATE INDEX "Student_schoolId_idx" ON "Student"("schoolId");

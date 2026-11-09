@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isLoginLockActive, maySwitchRole, normalizeLoginPhone, passwordPolicyError, requiresNewDeviceOtp, shouldLockAfterFailedLogin } from "../src/lib/auth-rules";
+import { isDeskSessionIdleExpired, isLoginLockActive, maySwitchRole, normalizeLoginPhone, passwordPolicyError, requiresNewDeviceOtp, shouldLockAfterFailedLogin } from "../src/lib/auth-rules";
 import { ROLE_CAPABILITIES } from "../src/lib/role-permissions";
 
 test("login phone accepts Indian 10-digit input and normalizes common prefixes", () => {
@@ -47,4 +47,12 @@ test("seeded role capabilities preserve key finance and parent boundaries", () =
   assert.equal(ROLE_CAPABILITIES.Parent.includes("student.read"), false);
   assert.equal(ROLE_CAPABILITIES.Parent.includes("parent.read"), true);
   assert.equal(ROLE_CAPABILITIES["Class Teacher"].includes("attendance.mark"), true);
+});
+
+test("desk sessions expire after 30 minutes idle; teacher sessions do not use that cutoff", () => {
+  const now = new Date("2026-11-09T12:30:00.000Z");
+  const lastActive = new Date("2026-11-09T12:00:00.000Z");
+  assert.equal(isDeskSessionIdleExpired("Finance", lastActive, now), true);
+  assert.equal(isDeskSessionIdleExpired("Reception", new Date(now.getTime() - 29 * 60 * 1000), now), false);
+  assert.equal(isDeskSessionIdleExpired("Teacher", lastActive, now), false);
 });

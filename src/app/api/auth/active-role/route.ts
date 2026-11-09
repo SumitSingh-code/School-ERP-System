@@ -13,11 +13,11 @@ export const POST = withSchoolRoute(null, async (request: NextRequest, _context,
     return NextResponse.json({ error: "That role is not assigned to your account" }, { status: 403 });
   }
 
-  const token = request.cookies.get("school_session")?.value;
+  const token = request.cookies.get("school_access")?.value;
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-  const refreshTokenHash = createHash("sha256").update(token).digest("hex");
+  const accessTokenHash = createHash("sha256").update(token).digest("hex");
   const session = await db.session.findFirst({
-    where: { userId: principal.userId, refreshTokenHash, revokedAt: null },
+    where: { userId: principal.userId, accessTokenHash, revokedAt: null },
     select: { id: true, activeRole: true },
   });
   if (!session) return NextResponse.json({ error: "Session expired. Sign in again." }, { status: 401 });

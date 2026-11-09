@@ -73,8 +73,11 @@ model Session {
   user             User      @relation(fields: [userId, schoolId], references: [id, schoolId])
   activeRole       String
   deviceName       String?
+  accessTokenHash  String?   @unique
+  accessExpiresAt  DateTime?
   refreshTokenHash String    @unique
   expiresAt        DateTime
+  lastActivityAt   DateTime  @default(now())
   revokedAt        DateTime?
   createdAt        DateTime  @default(now())
 }

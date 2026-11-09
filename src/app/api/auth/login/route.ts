@@ -11,9 +11,11 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-const COOKIE = "school_session";
+const ACCESS_COOKIE = "school_access";
+const REFRESH_COOKIE = "school_refresh";
 const MAX_FAILED_LOGINS = 5;
-const SESSION_HOURS = 12;
+const ACCESS_MINUTES = 15;
+const STAFF_REFRESH_DAYS = 30;
 
 export const POST = withPublicRoute(async (request: NextRequest) => {
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
@@ -75,13 +77,17 @@ export const POST = withPublicRoute(async (request: NextRequest) => {
   }
 
   const activeRole = assignments[0].role.name;
-  const token = randomBytes(32).toString("base64url");
-  const refreshTokenHash = createHash("sha256").update(token).digest("hex");
-  const expiresAt = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
+  const accessToken = randomBytes(32).toString("base64url");
+  const refreshToken = randomBytes(48).toString("base64url");
+  const accessTokenHash = createHash("sha256").update(accessToken).digest("hex");
+  const refreshTokenHash = createHash("sha256").update(refreshToken).digest("hex");
+  const now = new Date();
+  const accessExpiresAt = new Date(now.getTime() + ACCESS_MINUTES * 60 * 1000);
+  const expiresAt = new Date(now.getTime() + STAFF_REFRESH_DAYS * 24 * 60 * 60 * 1000);
 
   await prisma.$transaction(async (tx) => {
     await tx.session.create({
-      data: { userId: user.id, schoolId: user.schoolId, activeRole, refreshTokenHash, expiresAt },
+      data: { userId: user.id, schoolId: user.schoolId, activeRole, accessTokenHash, accessExpiresAt, refreshTokenHash, expiresAt, lastActivityAt: now },
     });
     await tx.user.update({
       where: { id: user.id, schoolId: user.schoolId },
@@ -98,7 +104,14 @@ export const POST = withPublicRoute(async (request: NextRequest) => {
   });
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(COOKIE, token, {
+  response.cookies.set(ACCESS_COOKIE, accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: accessExpiresAt,
+  });
+  response.cookies.set(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

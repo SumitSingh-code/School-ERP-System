@@ -6,13 +6,13 @@ import { prisma } from "./prisma";
 import { forSchool } from "./scoped-prisma";
 import type { Capability } from "./authorization";
 
-const COOKIE = "school_session";
+const COOKIE = "school_access";
 
 async function principalForToken(token: string | undefined) {
   if (!token) return null;
-  const refreshTokenHash = createHash("sha256").update(token).digest("hex");
+  const accessTokenHash = createHash("sha256").update(token).digest("hex");
   const session = await prisma.session.findFirst({
-    where: { refreshTokenHash, revokedAt: null, expiresAt: { gt: new Date() } },
+    where: { accessTokenHash, accessExpiresAt: { gt: new Date() }, revokedAt: null, expiresAt: { gt: new Date() } },
     include: {
       user: {
         include: {
@@ -29,7 +29,7 @@ async function principalForToken(token: string | undefined) {
       },
     },
   });
-  if (!session || session.user.status !== "ACTIVE") return null;
+  if (!session || session.user.status !== "ACTIVE" || session.user.deletedAt) return null;
   const activeAssignment = session.user.roles.find(({ role, schoolId }) => schoolId === session.schoolId && role.name === session.activeRole);
   if (!activeAssignment) return null;
   return {

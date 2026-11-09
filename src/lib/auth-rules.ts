@@ -30,3 +30,10 @@ export function shouldLockAfterFailedLogin(failedLoginCount: number) {
 export function requiresNewDeviceOtp(roleNames: readonly string[]) {
   return roleNames.some((role) => ["Director", "Principal", "Finance"].includes(role));
 }
+
+const DESK_ROLES = new Set(["Director", "Principal", "Reception", "Finance"]);
+
+export function isDeskSessionIdleExpired(activeRole: string, lastActivityAt: Date, now = new Date()) {
+  if (!DESK_ROLES.has(activeRole)) return false;
+  return now.getTime() - lastActivityAt.getTime() >= 30 * 60 * 1000;
+}
