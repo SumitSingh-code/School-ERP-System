@@ -1,9 +1,13 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import argon2 from "argon2";
+import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isLoginLockActive, normalizeLoginPhone, requiresNewDeviceOtp, shouldLockAfterFailedLogin } from "@/lib/auth-rules";
+import { isLoginLockActive, normalizeLoginPhone, requiresOtpOnDevice, shouldLockAfterFailedLogin } from "@/lib/auth-rules";
+import { createOtpCode, hashClientIp, hashOtp, OTP_LIFETIME_MS, otpLimitReached, requestClientIp } from "@/lib/auth-otp";
+import { configuredOtpProvider } from "@/lib/sms/provider";
+import { DEVICE_COOKIE, issueStaffSession, setSessionCookies } from "@/lib/auth-session";
 import { withPublicRoute } from "@/lib/with-school-route";
 
 const loginSchema = z.object({
@@ -11,11 +15,7 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-const ACCESS_COOKIE = "school_access";
-const REFRESH_COOKIE = "school_refresh";
 const MAX_FAILED_LOGINS = 5;
-const ACCESS_MINUTES = 15;
-const STAFF_REFRESH_DAYS = 30;
 
 export const POST = withPublicRoute(async (request: NextRequest) => {
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
@@ -63,60 +63,100 @@ export const POST = withPublicRoute(async (request: NextRequest) => {
     return NextResponse.json({ error: "Your account has no active role. Contact the school administrator." }, { status: 403 });
   }
 
-  if (requiresNewDeviceOtp(assignments.map(({ role }) => role.name))) {
-    await prisma.auditLog.create({ data: {
-      actorId: user.id,
-      schoolId: user.schoolId,
-      activeRole: null,
-      action: "auth.mfa.required",
-      entityType: "User",
-      entityId: user.id,
-      newValue: { reason: "No verified device-bound OTP flow is configured" },
-    } });
-    return NextResponse.json({ error: "Your role requires one-time code verification. Contact the school administrator until OTP is configured." }, { status: 503 });
+  const activeRole = assignments.find(({ role }) => ["Director", "Principal", "Finance"].includes(role.name))?.role.name
+    ?? assignments.find(({ role }) => role.name === "Reception")?.role.name
+    ?? assignments[0].role.name;
+  const rawDeviceToken = request.cookies.get(DEVICE_COOKIE)?.value;
+  const deviceHash = rawDeviceToken ? createHash("sha256").update(rawDeviceToken).digest("hex") : null;
+  const trustedDevice = deviceHash ? await prisma.authDevice.findFirst({
+    where: { userId: user.id, schoolId: user.schoolId, tokenHash: deviceHash, expiresAt: { gt: new Date() }, revokedAt: null },
+  }) : null;
+
+  if (requiresOtpOnDevice(assignments.map(({ role }) => role.name), trustedDevice?.otpVerified ?? false)) {
+    let otpProvider: ReturnType<typeof configuredOtpProvider>;
+    let ipHash: string;
+    try {
+      otpProvider = configuredOtpProvider();
+      ipHash = hashClientIp(requestClientIp(request.headers));
+    } catch {
+      await prisma.auditLog.create({ data: {
+        actorId: user.id,
+        schoolId: user.schoolId,
+        activeRole,
+        action: "auth.otp.unavailable",
+        entityType: "User",
+        entityId: user.id,
+        newValue: { reason: "OTP provider or OTP secret is not configured" },
+      } });
+      return NextResponse.json({ error: "One-time code delivery is unavailable. Contact the school administrator." }, { status: 503 });
+    }
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const challengeId = randomUUID();
+    const code = createOtpCode();
+    const expiresAt = new Date(Date.now() + OTP_LIFETIME_MS);
+    let admitted = false;
+    for (let retry = 0; retry < 3; retry += 1) {
+      try {
+        admitted = await prisma.$transaction(async (tx) => {
+          const [phoneRequests, ipRequests] = await Promise.all([
+            tx.otpChallenge.count({ where: { userId: user.id, createdAt: { gte: oneHourAgo } } }),
+            tx.otpChallenge.count({ where: { ipHash, createdAt: { gte: oneHourAgo } } }),
+          ]);
+          if (otpLimitReached(phoneRequests) || otpLimitReached(ipRequests)) return false;
+          await tx.otpChallenge.create({ data: {
+            id: challengeId,
+            userId: user.id,
+            schoolId: user.schoolId,
+            activeRole,
+            codeHash: hashOtp(challengeId, user.id, code),
+            ipHash,
+            expiresAt,
+          } });
+          await tx.auditLog.create({ data: {
+            actorId: user.id,
+            schoolId: user.schoolId,
+            activeRole,
+            action: "auth.otp.requested",
+            entityType: "OtpChallenge",
+            entityId: challengeId,
+            newValue: { expiresAt, destinationLastTwo: user.phone.slice(-2) },
+          } });
+          return true;
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        break;
+      } catch (error) {
+        if ((error as { code?: string }).code !== "P2034") throw error;
+        if (retry === 2) return NextResponse.json({ error: "Too many code requests. Try again in an hour." }, { status: 429 });
+      }
+    }
+    if (!admitted) return NextResponse.json({ error: "Too many code requests. Try again in an hour." }, { status: 429 });
+
+    try {
+      await otpProvider.sendLoginCode({ phone: user.phone, code });
+    } catch {
+      await prisma.$transaction(async (tx) => {
+        await tx.otpChallenge.updateMany({ where: { id: challengeId, schoolId: user.schoolId, consumedAt: null }, data: { consumedAt: new Date() } });
+        await tx.auditLog.create({ data: {
+          actorId: user.id,
+          schoolId: user.schoolId,
+          activeRole,
+          action: "auth.otp.delivery_failed",
+          entityType: "OtpChallenge",
+          entityId: challengeId,
+        } });
+      });
+      return NextResponse.json({ error: "One-time code delivery is unavailable. Contact the school administrator." }, { status: 503 });
+    }
+    return NextResponse.json({ otpRequired: true, challengeId, destinationHint: `••••${user.phone.slice(-2)}` });
   }
 
-  const activeRole = assignments[0].role.name;
-  const accessToken = randomBytes(32).toString("base64url");
-  const refreshToken = randomBytes(48).toString("base64url");
-  const accessTokenHash = createHash("sha256").update(accessToken).digest("hex");
-  const refreshTokenHash = createHash("sha256").update(refreshToken).digest("hex");
-  const now = new Date();
-  const accessExpiresAt = new Date(now.getTime() + ACCESS_MINUTES * 60 * 1000);
-  const expiresAt = new Date(now.getTime() + STAFF_REFRESH_DAYS * 24 * 60 * 60 * 1000);
-
-  await prisma.$transaction(async (tx) => {
-    await tx.session.create({
-      data: { userId: user.id, schoolId: user.schoolId, activeRole, accessTokenHash, accessExpiresAt, refreshTokenHash, expiresAt, lastActivityAt: now },
-    });
-    await tx.user.update({
-      where: { id: user.id, schoolId: user.schoolId },
-      data: { failedLoginCount: 0, lockedUntil: null },
-    });
-    await tx.auditLog.create({ data: {
-      actorId: user.id,
-      schoolId: user.schoolId,
-      activeRole,
-      action: "auth.login.succeeded",
-      entityType: "Session",
-      newValue: { activeRole },
-    } });
-  });
-
+  const issued = await prisma.$transaction((tx) => issueStaffSession(tx, {
+    userId: user.id,
+    schoolId: user.schoolId,
+    activeRole,
+    deviceId: trustedDevice?.id,
+  }));
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(ACCESS_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: accessExpiresAt,
-  });
-  response.cookies.set(REFRESH_COOKIE, refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: expiresAt,
-  });
+  setSessionCookies(response, issued);
   return response;
 });

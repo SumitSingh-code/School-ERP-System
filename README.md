@@ -46,13 +46,15 @@ The integration suite creates and removes uniquely named synthetic fixtures and 
 
 - The root page now requires a staff phone/password session; account creation is closed.
 - Password checks use Argon2id, successful and failed sign-ins are audited, and five failed attempts start a 15-minute lock window.
+- Director, Principal and Finance roles require a 6-digit SMS code on a new device. Codes are stored as keyed hashes, expire after five minutes, allow three attempts, and are single-use. OTP requests are capped at five per hour per account and IP. Trusted staff devices expire after 90 days.
 - Staff sessions use 15-minute access tokens and rotating 30-day refresh tokens. Desk roles expire after 30 minutes of inactivity.
 - A user can switch only among roles assigned to that user's session. The active role change is audited server-side.
-- Protected route handlers use the shared session/capability/school-scope wrapper. Login is the only public auth route.
+- Protected route handlers use the shared session/capability/school-scope wrapper. Login and OTP verification are public auth routes with common error handling.
 - `supabase/phase-0.5-auth-lockout.sql` upgrades an existing database with the login lockout field. The full schema SQL already includes it for a fresh database.
+- To upgrade a database that already has the Phase 0.5 auth schema, run `supabase/phase-0.5-otp-auth.sql` once to add trusted devices and OTP challenges. A fresh database gets those tables from `phase-0.5-schema.sql`.
 - Initial production setup uses `npm run provision:director` from a private terminal after applying the schema. It asks for the school and Director details, hides the password while typing, seeds reference roles/capabilities, and refuses to run if any school already exists.
-- 2Factor integration is isolated behind `src/lib/sms/provider.ts`. Add `TWOFACTOR_API_KEY` and `TWOFACTOR_LOGIN_TEMPLATE` only to private deployment environment settings after registering the sender and template with DLT. Neither variable belongs in `NEXT_PUBLIC_*` or Git. OTP delivery is intentionally unavailable until those values are set; no test code is sent to real numbers.
+- 2Factor integration is isolated behind `src/lib/sms/provider.ts`. Add `TWOFACTOR_API_KEY`, `TWOFACTOR_LOGIN_TEMPLATE`, and a private random `OTP_HASH_SECRET` (at least 32 characters) only to deployment environment settings after registering the sender and template with DLT. Neither variable belongs in `NEXT_PUBLIC_*` or Git. OTP delivery is unavailable until those values are set; no test code is sent to real numbers.
 
 Provider cost notes (checked 9 November 2026): 2Factor lists a ₹0.15/SMS Starter rate and DLT assistance. Firebase Phone Auth bills for each SMS and does not include phone SMS in its no-cost Spark plan, so it is not the cheaper production option for this India-first product. Provider prices and terms can change; verify them before procurement.
 
-This is foundation work, not a customer release. Staff and parent OTP, device management, domain workflows, and their real-Postgres permission/IDOR tests remain required before customer use. Production OTP delivery needs a DLT-compliant Indian SMS provider; no OTP is sent by a fake or hardcoded production path.
+This remains foundation work, not a customer release. Parent OTP, active-device management/revocation screens, domain workflows, and real-Postgres permission/IDOR tests still remain. Production staff OTP needs the school’s DLT-approved sender/template and private 2Factor credentials; no OTP is sent by a fake or hardcoded production path.

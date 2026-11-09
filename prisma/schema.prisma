@@ -26,6 +26,8 @@ model User {
   lockedUntil        DateTime?
   roles              UserRole[]
   sessions           Session[]
+  devices            AuthDevice[]
+  otpChallenges      OtpChallenge[]
   auditLogs          AuditLog[]
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -73,6 +75,8 @@ model Session {
   user             User      @relation(fields: [userId, schoolId], references: [id, schoolId])
   activeRole       String
   deviceName       String?
+  authDeviceId     String?
+  authDevice       AuthDevice? @relation(fields: [authDeviceId], references: [id])
   accessTokenHash  String?   @unique
   accessExpiresAt  DateTime?
   refreshTokenHash String    @unique
@@ -80,6 +84,42 @@ model Session {
   lastActivityAt   DateTime  @default(now())
   revokedAt        DateTime?
   createdAt        DateTime  @default(now())
+}
+
+model AuthDevice {
+  id           String         @id @default(uuid())
+  userId       String
+  schoolId     String
+  user         User           @relation(fields: [userId, schoolId], references: [id, schoolId])
+  tokenHash    String         @unique
+  otpVerified  Boolean        @default(false)
+  label        String?
+  lastUsedAt   DateTime       @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  sessions     Session[]
+
+  @@unique([id, schoolId])
+  @@index([userId, schoolId, revokedAt])
+}
+
+model OtpChallenge {
+  id          String   @id @default(uuid())
+  userId      String
+  schoolId    String
+  user        User     @relation(fields: [userId, schoolId], references: [id, schoolId])
+  activeRole  String
+  codeHash    String
+  ipHash      String
+  attempts    Int      @default(0)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@unique([id, schoolId])
+  @@index([userId, createdAt])
+  @@index([ipHash, createdAt])
 }
 
 model AuditLog {

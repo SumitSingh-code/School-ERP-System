@@ -25,3 +25,13 @@ test("2Factor adapter rejects provider errors and malformed successful responses
   const malformed = new TwoFactorOtpProvider("key", "template", async () => Response.json({ status: "sent" }));
   await assert.rejects(malformed.sendLoginCode({ phone: "+919876543210", code: "472918" }));
 });
+
+test("2Factor adapter converts normalized Indian ten-digit numbers to E.164", async () => {
+  let body: { to?: string } | undefined;
+  const provider = new TwoFactorOtpProvider("key", "template", async (_input, init) => {
+    body = JSON.parse(String(init?.body)) as { to?: string };
+    return Response.json({ status: "sent", session_id: "provider-session" });
+  });
+  await provider.sendLoginCode({ phone: "9876543210", code: "472918" });
+  assert.equal(body?.to, "+919876543210");
+});

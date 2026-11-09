@@ -46,3 +46,43 @@ test("real PostgreSQL tenant isolation across all Prisma operations", { skip: !e
     await base.$disconnect();
   }
 });
+
+test("real PostgreSQL keeps OTP challenges and trusted devices within their school scope", { skip: !enabled }, async () => {
+  const base = new PrismaClient();
+  const schoolA = `otp-a-${randomUUID()}`;
+  const schoolB = `otp-b-${randomUUID()}`;
+  const userA = `otp-user-a-${randomUUID()}`;
+  const userB = `otp-user-b-${randomUUID()}`;
+  const challengeA = `otp-challenge-a-${randomUUID()}`;
+  const challengeB = `otp-challenge-b-${randomUUID()}`;
+  const deviceB = `otp-device-b-${randomUUID()}`;
+  try {
+    await base.school.createMany({ data: [{ id: schoolA, name: "Synthetic OTP School A" }, { id: schoolB, name: "Synthetic OTP School B" }] });
+    await base.user.createMany({ data: [
+      { id: userA, schoolId: schoolA, name: "Synthetic Staff A", phone: `otp-${randomUUID()}` },
+      { id: userB, schoolId: schoolB, name: "Synthetic Staff B", phone: `otp-${randomUUID()}` },
+    ] });
+    await base.otpChallenge.createMany({ data: [
+      { id: challengeA, userId: userA, schoolId: schoolA, activeRole: "Principal", codeHash: "synthetic-hash-a", ipHash: "synthetic-ip-a", expiresAt: new Date(Date.now() + 60_000) },
+      { id: challengeB, userId: userB, schoolId: schoolB, activeRole: "Principal", codeHash: "synthetic-hash-b", ipHash: "synthetic-ip-b", expiresAt: new Date(Date.now() + 60_000) },
+    ] });
+    await base.authDevice.create({ data: { id: deviceB, userId: userB, schoolId: schoolB, tokenHash: `device-hash-${randomUUID()}`, expiresAt: new Date(Date.now() + 60_000) } });
+
+    const a = forSchool(base, schoolA);
+    assert.equal(await a.otpChallenge.findUnique({ where: { id: challengeB } }), null, "foreign OTP challenge is not visible");
+    assert.deepEqual((await a.otpChallenge.findMany()).map((row) => row.id), [challengeA]);
+    assert.equal((await a.otpChallenge.updateMany({ where: { id: challengeB }, data: { attempts: { increment: 1 } } })).count, 0);
+    assert.equal(await a.authDevice.findFirst({ where: { id: deviceB } }), null, "foreign trusted device is not visible");
+    assert.equal((await a.authDevice.deleteMany({ where: { id: deviceB } })).count, 0, "foreign device cannot be revoked/deleted");
+
+    const unchanged = await base.otpChallenge.findUnique({ where: { id: challengeB } });
+    assert.equal(unchanged?.attempts, 0);
+    assert.equal(unchanged?.schoolId, schoolB);
+  } finally {
+    await base.otpChallenge.deleteMany({ where: { schoolId: { in: [schoolA, schoolB] } } });
+    await base.authDevice.deleteMany({ where: { schoolId: { in: [schoolA, schoolB] } } });
+    await base.user.deleteMany({ where: { schoolId: { in: [schoolA, schoolB] } } });
+    await base.school.deleteMany({ where: { id: { in: [schoolA, schoolB] } } });
+    await base.$disconnect();
+  }
+});

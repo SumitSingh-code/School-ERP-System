@@ -29,10 +29,11 @@ export class TwoFactorOtpProvider implements OtpSmsProvider {
   }
 
   async sendLoginCode({ phone, code }: OtpSmsRequest): Promise<void> {
+    const recipient = /^\d{10}$/.test(phone) ? `+91${phone}` : phone;
     const response = await this.fetcher("https://2factor.in/API/V1/OTP/SEND", {
       method: "POST",
       headers: { "content-type": "application/json", "X-API-Key": this.apiKey },
-      body: JSON.stringify({ to: phone, template_name: this.templateName, var1: code }),
+      body: JSON.stringify({ to: recipient, template_name: this.templateName, var1: code }),
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });

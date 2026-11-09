@@ -31,6 +31,18 @@ export function requiresNewDeviceOtp(roleNames: readonly string[]) {
   return roleNames.some((role) => ["Director", "Principal", "Finance"].includes(role));
 }
 
+export function requiresOtpOnDevice(roleNames: readonly string[], deviceOtpVerified: boolean) {
+  return requiresNewDeviceOtp(roleNames) && !deviceOtpVerified;
+}
+
+export function hasAssignedSchoolRole(
+  assignments: Array<{ schoolId: string; roleName: string }>,
+  schoolId: string,
+  roleName: string,
+) {
+  return assignments.some((assignment) => assignment.schoolId === schoolId && assignment.roleName === roleName);
+}
+
 const DESK_ROLES = new Set(["Director", "Principal", "Reception", "Finance"]);
 
 export function isDeskSessionIdleExpired(activeRole: string, lastActivityAt: Date, now = new Date()) {

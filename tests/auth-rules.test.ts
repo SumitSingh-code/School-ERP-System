@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isDeskSessionIdleExpired, isLoginLockActive, maySwitchRole, normalizeLoginPhone, passwordPolicyError, requiresNewDeviceOtp, shouldLockAfterFailedLogin } from "../src/lib/auth-rules";
+import { hasAssignedSchoolRole, isDeskSessionIdleExpired, isLoginLockActive, maySwitchRole, normalizeLoginPhone, passwordPolicyError, requiresNewDeviceOtp, requiresOtpOnDevice, shouldLockAfterFailedLogin } from "../src/lib/auth-rules";
 import { ROLE_CAPABILITIES } from "../src/lib/role-permissions";
 
 test("login phone accepts Indian 10-digit input and normalizes common prefixes", () => {
@@ -39,6 +39,16 @@ test("privileged roles require OTP on a new device", () => {
   assert.equal(requiresNewDeviceOtp(["Teacher"]), false);
   assert.equal(requiresNewDeviceOtp(["Teacher", "Principal"]), true);
   assert.equal(requiresNewDeviceOtp(["Finance"]), true);
+  assert.equal(requiresOtpOnDevice(["Teacher"], false), false);
+  assert.equal(requiresOtpOnDevice(["Principal"], false), true);
+  assert.equal(requiresOtpOnDevice(["Principal"], true), false);
+});
+
+test("OTP cannot issue a session for a role removed from that school assignment", () => {
+  const assignments = [{ schoolId: "school-a", roleName: "Principal" }];
+  assert.equal(hasAssignedSchoolRole(assignments, "school-a", "Principal"), true);
+  assert.equal(hasAssignedSchoolRole(assignments, "school-a", "Director"), false);
+  assert.equal(hasAssignedSchoolRole(assignments, "school-b", "Principal"), false);
 });
 
 test("seeded role capabilities preserve key finance and parent boundaries", () => {

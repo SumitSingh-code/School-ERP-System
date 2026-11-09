@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createSchoolRepository, scopedWhere } from "../src/lib/tenant-scope";
 import { requireCapability } from "../src/lib/authorization";
+import { scopeOperationArgs } from "../src/lib/scoped-prisma";
 
 test("school scope is required and cannot be overridden", () => {
   assert.throws(() => scopedWhere(undefined), /school scope is required/i);
@@ -21,6 +22,25 @@ test("School A repository cannot return School B records", async () => {
   const schoolA = createSchoolRepository(delegate, { schoolId: "school-a" });
   const result = await schoolA.findMany({ where: { name: "Synthetic" } });
   assert.deepEqual(result.map((record) => record.schoolId), ["school-a"]);
+});
+
+test("Prisma operation scope stays top-level for unique selectors and cannot be changed by create/update data", () => {
+  assert.deepEqual(scopeOperationArgs("Student", "findUnique", { where: { id: "student-b", schoolId: "school-b" } }, "school-a"), {
+    where: { id: "student-b", schoolId: "school-a" },
+  });
+  assert.deepEqual(scopeOperationArgs("Student", "create", { data: { schoolId: "school-b", fullName: "Synthetic" } }, "school-a"), {
+    data: { schoolId: "school-a", fullName: "Synthetic" },
+  });
+  assert.deepEqual(scopeOperationArgs("Student", "update", { where: { id: "student-a" }, data: { schoolId: "school-b", fullName: "Synthetic" } }, "school-a"), {
+    where: { id: "student-a", schoolId: "school-a" },
+    data: { schoolId: "school-a", fullName: "Synthetic" },
+  });
+  assert.deepEqual(scopeOperationArgs("Student", "upsert", { where: { id: "student-a" }, create: { schoolId: "school-b" }, update: { schoolId: "school-b" } }, "school-a"), {
+    where: { id: "student-a", schoolId: "school-a" },
+    create: { schoolId: "school-a" },
+    update: { schoolId: "school-a" },
+  });
+  assert.throws(() => scopeOperationArgs("Unknown", "findMany", {}, "school-a"), /not classified/);
 });
 
 test("authorization requires the requested capability", () => {
