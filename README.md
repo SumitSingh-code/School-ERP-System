@@ -77,11 +77,10 @@ On a fresh database, run the normal Prisma flow: `npm run db:deploy`. On a datab
 
 After applying the migration, run `npm run db:generate`, then initialize each school with `npm run provision:director` for a new production database or `npm run db:seed` only on an explicitly disposable synthetic test database. The academic screen is available at `/academic`; student and staff CSV tools are at `/imports` for roles with the relevant capabilities. Download templates from those pages, review all preview errors and warnings, then explicitly confirm. Import rollback is allowed only while imported records are unchanged and unused; opening-balance entries are reversed rather than deleted.
 
-## Planned product phases
+## Remaining product phases
 
 - **Phase 0.5 — Hardening:** real PostgreSQL tenant-isolation tests for all Prisma operations, raw SQL guardrails, common route wrapper enforcement, migrations and synthetic seed on a disposable database.
 - **Phase 1 — Academic setup and imports:** academic years/classes/streams/groups/subjects/sections, preview-confirm student and staff imports, rollback safeguards.
-- **Phase 2 — Staff assignments, timetable and holidays.**
 - **Phase 3 — Attendance, offline sync and parent notifications.**
 - **Phase 4 — Fees, ledger, receipts, day close and reports.**
 - **Phase 5 — Tests, exams, marks and report cards.**
@@ -89,3 +88,15 @@ After applying the migration, run `npm run db:generate`, then initialize each sc
 - **Phase 7 — Inactive students, year rollover and pilot hardening.**
 
 Each feature phase will be gated by tests, lint, typecheck, Prisma validation and production build, with demo steps and a changelog. Current implementation is still in progress and is not a customer release until all required workflows and release checks are complete.
+
+## Current build: Phase 2 staff assignments, timetable and holidays
+
+Phase 2 adds class-teacher assignments (one section per teacher/year), subject-teacher assignments scoped to section and academic year, an eight-period weekly timetable, configurable working days/period times/breaks, planned and same-day holiday controls, national holiday and second-Saturday helpers, and intentional combined lessons across sections. Timetable subject entries derive their teacher from the assignment matrix. Reassignments retain prior assignment rows and create timetable history plus audit events for dependent lessons.
+
+Timetable saves are versioned and the database enforces a unique section/day/period. A PostgreSQL trigger serializes teacher-slot checks so simultaneous edits cannot assign a teacher to two classes in the same period; explicitly shared lessons are allowed only through a matching combined-lesson group. Holiday, assignment, schedule and timetable mutations record actor, active role, time and before/after values. Every protected API remains behind the common session/capability/school-scope route wrapper.
+
+### Apply the Phase 2 database migration
+
+On a database already tracked by Prisma, run `npm run db:deploy`. For an existing Supabase SQL Editor database initialized manually, run the complete [`supabase/phase-2-staff-timetable-holidays.sql`](supabase/phase-2-staff-timetable-holidays.sql) once. Do not use both paths on the same database. The migration backfills existing timetable rows' academic year from their section, adds school-composite foreign keys and history, and installs PostgreSQL constraints/triggers for slot and teacher conflicts. After migration run `npm run db:generate`.
+
+Open `/assignments`, `/timetable` and `/holidays` from the dashboard for roles that have those capabilities. The laptop/phone walkthrough and expected access checks are in [`docs/phase-2-demo.md`](docs/phase-2-demo.md). The real-database CI suite covers two-school isolation, concurrent saves, teacher conflicts, shared lessons, audit history, denied roles and working-day configuration. SMS messages and attendance voiding for closures are deferred to the attendance/notification phase; SMS delivery also requires DLT registration and approved templates.
