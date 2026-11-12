@@ -51,8 +51,8 @@ export async function queueAttendanceReminders(prisma: PrismaClient, now = new D
       };
       const teacherNotices = section.classTeacherAssignment
         .filter(({ staff }) => staff.status === "ACTIVE" && !staff.deletedAt)
-        .map(({ userId }) => ({ ...common, userId, idempotencyKey: `attendance:${dateText}:${section.id}:teacher:${userId}` }));
-      const principalNotices = principals.map(({ userId }) => ({ ...common, userId, idempotencyKey: `attendance:${dateText}:${section.id}:principal:${userId}` }));
+        .map(({ userId }) => ({ ...common, userId, idempotencyKey: `attendance:${dateText}:${section.id}:${eventType}:teacher:${userId}` }));
+      const principalNotices = principals.map(({ userId }) => ({ ...common, userId, idempotencyKey: `attendance:${dateText}:${section.id}:${eventType}:principal:${userId}` }));
       return [...teacherNotices, ...principalNotices];
     });
     if (messages.length) {
