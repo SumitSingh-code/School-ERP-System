@@ -244,12 +244,6 @@ CREATE TRIGGER "TimetableEntry_teacher_conflict_trigger"
 BEFORE INSERT OR UPDATE OF "schoolId", "academicYearId", "dayOfWeek", "period", "teacherId", "combinedGroupId", "subjectId", "deletedAt"
 ON "TimetableEntry" FOR EACH ROW EXECUTE FUNCTION school_erp_timetable_teacher_conflict();
 
--- Preserve history for reassignments while preventing duplicate active class-teacher slots.
-CREATE UNIQUE INDEX "ClassTeacherAssignment_active_section_key"
-ON "ClassTeacherAssignment"("schoolId", "academicYearId", "sectionId") WHERE "deletedAt" IS NULL;
-CREATE UNIQUE INDEX "ClassTeacherAssignment_active_teacher_key"
-ON "ClassTeacherAssignment"("schoolId", "academicYearId", "userId") WHERE "deletedAt" IS NULL;
-
 -- Unique indexes provide race-safe conflict checks even when simultaneous requests have stale query snapshots.
 CREATE UNIQUE INDEX "TimetableEntry_active_teacher_slot_key"
 ON "TimetableEntry"("schoolId", "academicYearId", "teacherId", "dayOfWeek", "period")
