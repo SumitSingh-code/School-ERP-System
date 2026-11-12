@@ -9,6 +9,8 @@ const payload = z.object({
   workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
   periods: z.array(z.object({ period: z.number().int().min(1).max(8), start: clock, end: clock })).length(8),
   breaks: z.array(z.object({ afterPeriod: z.number().int().min(0).max(8), label: z.string().trim().min(1).max(30), ...interval.shape })).max(8),
+  attendanceCutoff: clock.default("10:00"),
+  attendanceEscalationMinutes: z.number().int().min(5).max(240).default(30),
 }).superRefine((value, context) => {
   if (new Set(value.workingDays).size !== value.workingDays.length) context.addIssue({ code: "custom", message: "Working days must not repeat", path: ["workingDays"] });
   const periods = [...value.periods].sort((a, b) => a.period - b.period);
@@ -42,10 +44,10 @@ export const PUT = withSchoolRoute("timetable.manage", async (request: NextReque
   if (!parsed.success) return NextResponse.json({ error: "Check the schedule settings", fields: parsed.error.flatten().fieldErrors }, { status: 400 });
   const input = parsed.data;
   const before = await db.scheduleSettings.findFirst();
-  const settings = await auditedMutation(db, { actorId: principal.userId, activeRole: principal.activeRole, schoolId: principal.schoolId, action: before ? "schedule.settings.updated" : "schedule.settings.created", entityType: "ScheduleSettings", entityId: before?.id, oldValue: before ? { workingDays: before.workingDays, periodLayout: before.periodLayout } : undefined, newValue: { workingDays: input.workingDays, periodLayout: { periods: input.periods, breaks: input.breaks } } }, async (tx) => tx.scheduleSettings.upsert({
+  const settings = await auditedMutation(db, { actorId: principal.userId, activeRole: principal.activeRole, schoolId: principal.schoolId, action: before ? "schedule.settings.updated" : "schedule.settings.created", entityType: "ScheduleSettings", entityId: before?.id, oldValue: before ? { workingDays: before.workingDays, periodLayout: before.periodLayout, attendanceCutoff: before.attendanceCutoff, attendanceEscalationMinutes: before.attendanceEscalationMinutes } : undefined, newValue: { workingDays: input.workingDays, periodLayout: { periods: input.periods, breaks: input.breaks }, attendanceCutoff: input.attendanceCutoff, attendanceEscalationMinutes: input.attendanceEscalationMinutes } }, async (tx) => tx.scheduleSettings.upsert({
     where: { schoolId: principal.schoolId },
-    create: { schoolId: principal.schoolId, workingDays: input.workingDays, periodLayout: { periods: input.periods, breaks: input.breaks }, updatedById: principal.userId },
-    update: { workingDays: input.workingDays, periodLayout: { periods: input.periods, breaks: input.breaks }, updatedById: principal.userId },
+    create: { schoolId: principal.schoolId, workingDays: input.workingDays, periodLayout: { periods: input.periods, breaks: input.breaks }, attendanceCutoff: input.attendanceCutoff, attendanceEscalationMinutes: input.attendanceEscalationMinutes, updatedById: principal.userId },
+    update: { workingDays: input.workingDays, periodLayout: { periods: input.periods, breaks: input.breaks }, attendanceCutoff: input.attendanceCutoff, attendanceEscalationMinutes: input.attendanceEscalationMinutes, updatedById: principal.userId },
   }));
   return NextResponse.json({ settings });
 });

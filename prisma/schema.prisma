@@ -14,36 +14,55 @@ enum UserStatus {
   LOCKED
 }
 
+enum AttendanceRecordStatus {
+  ABSENT
+  LATE
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
 model User {
-  id                        String                     @id @default(uuid())
-  schoolId                  String
-  name                      String
-  phone                     String                     @unique
-  passwordHash              String?
-  status                    UserStatus                 @default(ACTIVE)
-  mustChangePassword        Boolean                    @default(false)
-  failedLoginCount          Int                        @default(0)
-  lockedUntil               DateTime?
-  roles                     UserRole[]
-  sessions                  Session[]
-  devices                   AuthDevice[]
-  otpChallenges             OtpChallenge[]
-  importRecords             ImportRecord[]
-  ledgerEntries             LedgerEntry[]
-  classTeacherAssignments   ClassTeacherAssignment[]
-  subjectTeacherAssignments SubjectTeacherAssignment[]
-  taughtTimetableEntries    TimetableEntry[]           @relation("TimetableTeacher")
-  createdTimetableEntries   TimetableEntry[]           @relation("TimetableCreator")
-  updatedTimetableEntries   TimetableEntry[]           @relation("TimetableUpdater")
-  combinedTaughtGroups      CombinedLessonGroup[]      @relation("CombinedLessonTeacher")
-  combinedCreatedGroups     CombinedLessonGroup[]      @relation("CombinedLessonCreator")
-  timetableChanges          TimetableChange[]
-  holidayCreations          Holiday[]
-  scheduleSettingsUpdates   ScheduleSettings[]
-  auditLogs                 AuditLog[]
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  deletedAt                 DateTime?
+  id                          String                     @id @default(uuid())
+  schoolId                    String
+  name                        String
+  phone                       String                     @unique
+  passwordHash                String?
+  status                      UserStatus                 @default(ACTIVE)
+  mustChangePassword          Boolean                    @default(false)
+  failedLoginCount            Int                        @default(0)
+  lockedUntil                 DateTime?
+  roles                       UserRole[]
+  sessions                    Session[]
+  devices                     AuthDevice[]
+  otpChallenges               OtpChallenge[]
+  importRecords               ImportRecord[]
+  ledgerEntries               LedgerEntry[]
+  classTeacherAssignments     ClassTeacherAssignment[]
+  subjectTeacherAssignments   SubjectTeacherAssignment[]
+  taughtTimetableEntries      TimetableEntry[]           @relation("TimetableTeacher")
+  createdTimetableEntries     TimetableEntry[]           @relation("TimetableCreator")
+  updatedTimetableEntries     TimetableEntry[]           @relation("TimetableUpdater")
+  combinedTaughtGroups        CombinedLessonGroup[]      @relation("CombinedLessonTeacher")
+  combinedCreatedGroups       CombinedLessonGroup[]      @relation("CombinedLessonCreator")
+  timetableChanges            TimetableChange[]
+  holidayCreations            Holiday[]
+  scheduleSettingsUpdates     ScheduleSettings[]
+  attendanceSubmissions       AttendanceSubmission[]
+  substituteAssignments       SubstituteAssignment[]     @relation("SubstituteStaff")
+  createdSubstitutions        SubstituteAssignment[]     @relation("SubstituteCreator")
+  lateAttendanceChanges       AttendanceRecord[]         @relation("LateAttendanceActor")
+  notifications               Notification[]             @relation("NotificationUser")
+  voidedAttendanceSubmissions AttendanceSubmission[]     @relation("AttendanceVoider")
+  auditLogs                   AuditLog[]
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  deletedAt                   DateTime?
 
   @@unique([id, schoolId])
 }
@@ -152,10 +171,12 @@ model AuditLog {
 }
 
 model School {
-  id               String            @id @default(uuid())
-  name             String
-  createdAt        DateTime          @default(now())
-  scheduleSettings ScheduleSettings?
+  id                    String                 @id @default(uuid())
+  name                  String
+  createdAt             DateTime               @default(now())
+  scheduleSettings      ScheduleSettings?
+  notificationTemplates NotificationTemplate[]
+  notifications         Notification[]
 }
 
 model AcademicYear {
@@ -271,22 +292,23 @@ model ClassSubject {
 }
 
 model Student {
-  id               String            @id @default(uuid())
-  schoolId         String
-  admissionNo      String
-  fullName         String
-  status           String            @default("ACTIVE")
-  dateOfBirth      DateTime?         @db.Date
-  gender           String?
-  address          String?
-  paymentPlanLabel String?
-  sectionId        String?
-  section          Section?          @relation(fields: [sectionId, schoolId], references: [id, schoolId])
-  guardians        StudentGuardian[]
-  ledgerEntries    LedgerEntry[]
-  deletedAt        DateTime?
-  updatedAt        DateTime          @updatedAt
-  createdAt        DateTime          @default(now())
+  id                String             @id @default(uuid())
+  schoolId          String
+  admissionNo       String
+  fullName          String
+  status            String             @default("ACTIVE")
+  dateOfBirth       DateTime?          @db.Date
+  gender            String?
+  address           String?
+  paymentPlanLabel  String?
+  sectionId         String?
+  section           Section?           @relation(fields: [sectionId, schoolId], references: [id, schoolId])
+  guardians         StudentGuardian[]
+  attendanceRecords AttendanceRecord[]
+  ledgerEntries     LedgerEntry[]
+  deletedAt         DateTime?
+  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime           @default(now())
 
   @@unique([schoolId, admissionNo])
   @@unique([id, schoolId])
@@ -295,14 +317,15 @@ model Student {
 }
 
 model Guardian {
-  id        String            @id @default(uuid())
-  schoolId  String
-  name      String
-  phone     String            @unique
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  deletedAt DateTime?
-  students  StudentGuardian[]
+  id            String            @id @default(uuid())
+  schoolId      String
+  name          String
+  phone         String            @unique
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+  students      StudentGuardian[]
+  notifications Notification[]
 
   @@unique([id, schoolId])
 }
@@ -339,9 +362,12 @@ model Section {
   classTeacherAssignment    ClassTeacherAssignment[]
   subjectTeacherAssignments SubjectTeacherAssignment[]
   timetableEntries          TimetableEntry[]
+  attendanceSubmissions     AttendanceSubmission[]
+  substituteAssignments     SubstituteAssignment[]
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   deletedAt                 DateTime?
+  attendanceRecords         AttendanceRecord[]
 
   @@unique([schoolId, academicYearId, classLevelId, streamId, groupId, name])
   @@unique([id, schoolId])
@@ -407,15 +433,17 @@ model SubjectTeacherAssignment {
 }
 
 model ScheduleSettings {
-  id           String   @id @default(uuid())
-  schoolId     String   @unique
-  school       School   @relation(fields: [schoolId], references: [id])
-  workingDays  Int[]    @default([1, 2, 3, 4, 5, 6])
-  periodLayout Json     @default("[]")
-  updatedById  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  updatedBy    User?    @relation(fields: [updatedById, schoolId], references: [id, schoolId])
+  id                          String   @id @default(uuid())
+  schoolId                    String   @unique
+  school                      School   @relation(fields: [schoolId], references: [id])
+  workingDays                 Int[]    @default([1, 2, 3, 4, 5, 6])
+  periodLayout                Json     @default("[]")
+  attendanceCutoff            String   @default("10:00")
+  attendanceEscalationMinutes Int      @default(30)
+  updatedById                 String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  updatedBy                   User?    @relation(fields: [updatedById, schoolId], references: [id, schoolId])
 }
 
 model Holiday {
@@ -545,4 +573,113 @@ model TimetableChange {
   actor      User           @relation(fields: [actorId, schoolId], references: [id, schoolId])
 
   @@index([schoolId, entryId, createdAt])
+}
+
+model SubstituteAssignment {
+  id           String    @id @default(uuid())
+  schoolId     String
+  sectionId    String
+  userId       String
+  assignedById String
+  date         DateTime  @db.Date
+  reason       String
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  section      Section   @relation(fields: [sectionId, schoolId], references: [id, schoolId])
+  substitute   User      @relation("SubstituteStaff", fields: [userId, schoolId], references: [id, schoolId])
+  assignedBy   User      @relation("SubstituteCreator", fields: [assignedById, schoolId], references: [id, schoolId])
+
+  @@unique([id, schoolId])
+  @@unique([schoolId, sectionId, date, userId])
+  @@index([schoolId, userId, date, revokedAt])
+}
+
+model AttendanceSubmission {
+  id             String             @id @default(uuid())
+  schoolId       String
+  sectionId      String
+  date           DateTime           @db.Date
+  submittedById  String
+  idempotencyKey String
+  submittedAt    DateTime           @default(now())
+  voidedAt       DateTime?
+  voidedById     String?
+  voidReason     String?
+  section        Section            @relation(fields: [sectionId, schoolId], references: [id, schoolId])
+  submittedBy    User               @relation(fields: [submittedById, schoolId], references: [id, schoolId])
+  voidedBy       User?              @relation("AttendanceVoider", fields: [voidedById, schoolId], references: [id, schoolId])
+  records        AttendanceRecord[]
+
+  @@unique([schoolId, sectionId, date])
+  @@unique([schoolId, idempotencyKey])
+  @@unique([id, schoolId])
+  @@index([schoolId, date, sectionId])
+}
+
+model AttendanceRecord {
+  id           String                 @id @default(uuid())
+  schoolId     String
+  submissionId String
+  sectionId    String
+  studentId    String
+  date         DateTime               @db.Date
+  status       AttendanceRecordStatus @default(ABSENT)
+  lateReason   String?
+  arrivalAt    DateTime?
+  changedById  String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  deletedAt    DateTime?
+  submission   AttendanceSubmission   @relation(fields: [submissionId, schoolId], references: [id, schoolId])
+  section      Section                @relation(fields: [sectionId, schoolId], references: [id, schoolId])
+  student      Student                @relation(fields: [studentId, schoolId], references: [id, schoolId])
+  changedBy    User?                  @relation("LateAttendanceActor", fields: [changedById, schoolId], references: [id, schoolId])
+
+  @@unique([submissionId, studentId])
+  @@unique([schoolId, studentId, date])
+  @@unique([id, schoolId])
+  @@index([schoolId, sectionId, date, status])
+}
+
+model NotificationTemplate {
+  id            String   @id @default(uuid())
+  schoolId      String
+  eventType     String
+  language      String
+  channel       String
+  title         String
+  body          String
+  dltTemplateId String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  school        School   @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, eventType, language, channel])
+  @@unique([id, schoolId])
+}
+
+model Notification {
+  id             String             @id @default(uuid())
+  schoolId       String
+  guardianId     String?
+  userId         String?
+  eventType      String
+  channel        String             @default("IN_APP")
+  status         NotificationStatus @default(QUEUED)
+  title          String
+  body           String
+  payload        Json
+  idempotencyKey String
+  queuedAt       DateTime           @default(now())
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  failedAt       DateTime?
+  school         School             @relation(fields: [schoolId], references: [id])
+  guardian       Guardian?          @relation(fields: [guardianId, schoolId], references: [id, schoolId])
+  user           User?              @relation("NotificationUser", fields: [userId, schoolId], references: [id, schoolId])
+
+  @@unique([schoolId, idempotencyKey])
+  @@unique([id, schoolId])
+  @@index([schoolId, guardianId, queuedAt])
 }

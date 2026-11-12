@@ -28,6 +28,10 @@ export function RoleControls({ roles, activeRole }: { roles: string[]; activeRol
 
   async function signOut() {
     setBusy(true);
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith("school-erp-attendance:")) window.localStorage.removeItem(key);
+    }
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/");
     router.refresh();

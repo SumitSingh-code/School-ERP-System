@@ -81,7 +81,8 @@ After applying the migration, run `npm run db:generate`, then initialize each sc
 
 - **Phase 0.5 — Hardening:** real PostgreSQL tenant-isolation tests for all Prisma operations, raw SQL guardrails, common route wrapper enforcement, migrations and synthetic seed on a disposable database.
 - **Phase 1 — Academic setup and imports:** academic years/classes/streams/groups/subjects/sections, preview-confirm student and staff imports, rollback safeguards.
-- **Phase 3 — Attendance, offline sync and parent notifications.**
+- **Phase 2 — Staff assignments, timetable and holidays:** delivered.
+- **Phase 3 — Attendance, offline sync and notification outbox:** built; awaiting owner review.
 - **Phase 4 — Fees, ledger, receipts, day close and reports.**
 - **Phase 5 — Tests, exams, marks and report cards.**
 - **Phase 6 — Notices, parent app and role dashboards.**
@@ -100,3 +101,15 @@ Timetable saves are versioned and the database enforces a unique section/day/per
 On a database already tracked by Prisma, run `npm run db:deploy`. For an existing Supabase SQL Editor database initialized manually, run the complete [`supabase/phase-2-staff-timetable-holidays.sql`](supabase/phase-2-staff-timetable-holidays.sql) once. Do not use both paths on the same database. The migration backfills existing timetable rows' academic year from their section, adds school-composite foreign keys and history, and installs PostgreSQL constraints/triggers for slot and teacher conflicts. After migration run `npm run db:generate`.
 
 Open `/assignments`, `/timetable` and `/holidays` from the dashboard for roles that have those capabilities. The laptop/phone walkthrough and expected access checks are in [`docs/phase-2-demo.md`](docs/phase-2-demo.md). The real-database CI suite covers two-school isolation, concurrent saves, teacher conflicts, shared lessons, audit history, denied roles and working-day configuration. SMS messages and attendance voiding for closures are deferred to the attendance/notification phase; SMS delivery also requires DLT registration and approved templates.
+
+## Current build: Phase 3 attendance and notification outbox
+
+Attendance is available at `/attendance` to roles with the required server capability. Teachers see only their assigned sections. A section is **Not marked yet** until a dated submission exists; only absent/late records are stored. Attendance writes are idempotent, school-scoped and audited. Offline drafts stay in the teacher's browser and are cleared at sign-out. Principal, Reception and Director can change an absent record to late with a reason and arrival time; that correction is audited.
+
+The phase adds date-scoped substitute assignments, bilingual attendance notification templates, persisted guardian notification outbox records and a separate-worker reminder check. The worker observes working days, holidays, the configurable IST cutoff and escalation delay, then queues reminders for the class teacher and later the Principal. Sudden holiday closure now previews recipient counts, cancels queued attendance alerts, soft-voids same-day attendance with audit history, and queues bilingual closure/correction messages. Sudden closures cannot be removed once confirmed. The parent app/inbox comes in a later phase, so queued guardian events will be surfaced when parent sign-in/inbox is built. SMS fallback stays disabled until the school completes DLT sender/header and template registration. These flows do not contact parent phone numbers yet.
+
+### Apply the Phase 3 database migration
+
+For a Prisma-managed database, apply with `npm run db:deploy`. For a Supabase SQL Editor database, run [`supabase/phase-3-attendance-notifications.sql`](supabase/phase-3-attendance-notifications.sql) once. Do not apply both methods to the same database. The migration adds attendance submissions/records, substitute assignments, bilingual notification templates/outbox, and attendance cutoff/escalation settings. New school setup creates attendance templates; the synthetic seed also inserts synthetic templates.
+
+The phone/laptop walkthrough and acceptance checklist are in [`docs/phase-3-demo.md`](docs/phase-3-demo.md). CI applies this migration to a disposable PostgreSQL 16 database, seeds synthetic-only data, and runs the attendance integration suite. Keep Supabase production credentials private; never use production student records in automated tests.

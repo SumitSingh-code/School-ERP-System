@@ -16,9 +16,9 @@ export const ROLE_CAPABILITIES: Record<string, readonly Capability[]> = {
   ],
   Finance: ["dashboard.read", "fees.collect", "fees.ledger.read", "fees.reversal.request", "fees.day-close", "reports.read"],
   Teacher: ["dashboard.read", "student.read", "timetable.read"],
-  "Class Teacher": ["dashboard.read", "attendance.mark", "student.read", "timetable.read"],
+  "Class Teacher": ["dashboard.read", "attendance.mark", "attendance.read", "student.read", "timetable.read"],
   "Subject Teacher": ["dashboard.read", "student.read", "timetable.read", "assessment.declare", "marks.enter", "marks.read"],
-  Substitute: ["dashboard.read", "attendance.mark", "attendance.substitute", "student.read"],
+  Substitute: ["dashboard.read", "attendance.mark", "attendance.read", "attendance.substitute", "student.read"],
   Parent: ["dashboard.read", "parent.read", "fees.ledger.read"],
 };
 

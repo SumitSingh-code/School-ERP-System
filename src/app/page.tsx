@@ -88,6 +88,7 @@ async function DashboardContent() {
       {principal.capabilities.has("academic.manage") && <a href="/academic" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-900 px-5 font-semibold text-white">Manage academic setup</a>}
       {principal.capabilities.has("student.import") && <a href="/imports" className="ml-3 mt-6 inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-900 bg-white px-5 font-semibold text-emerald-950">Import students</a>}
       <div className="mt-4 flex flex-wrap gap-3">
+        {principal.capabilities.has("attendance.read") && <a href="/attendance" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-900 px-5 font-semibold text-white">Attendance</a>}
         {principal.capabilities.has("assignment.manage") && <a href="/assignments" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-900 bg-white px-5 font-semibold text-emerald-950">Teacher assignments</a>}
         {principal.capabilities.has("timetable.read") && <a href="/timetable" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-900 bg-white px-5 font-semibold text-emerald-950">Timetable</a>}
         {principal.capabilities.has("holiday.manage") && <a href="/holidays" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-900 bg-white px-5 font-semibold text-emerald-950">Holidays</a>}

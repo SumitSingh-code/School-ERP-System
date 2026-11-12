@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 type Entry = { id: string; sectionId: string; dayOfWeek: number; period: number; subjectId: string | null; teacherId: string | null; label: string | null; version: number; subject: { name: string } | null; teacher: { name: string } | null };
 type Layout = { periods: { period: number; start: string; end: string }[]; breaks: { afterPeriod: number; label: string; start: string; end: string }[] };
-type Payload = { years: { id: string; label: string; isCurrent: boolean }[]; sections: { id: string; name: string; academicYearId: string; classLevel: { name: string }; academicYear: { label: string } }[]; subjects: { id: string; name: string }[]; assignments: { sectionId: string; subjectId: string; staff: { id: string; name: string } }[]; entries: Entry[]; settings: { id: string; workingDays: number[]; periodLayout: unknown } | null };
+type Payload = { years: { id: string; label: string; isCurrent: boolean }[]; sections: { id: string; name: string; academicYearId: string; classLevel: { name: string }; academicYear: { label: string } }[]; subjects: { id: string; name: string }[]; assignments: { sectionId: string; subjectId: string; staff: { id: string; name: string } }[]; entries: Entry[]; settings: { id: string; workingDays: number[]; periodLayout: unknown; attendanceCutoff?: string; attendanceEscalationMinutes?: number } | null };
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const field = "min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm";
 
@@ -85,13 +85,15 @@ function ScheduleSettingsEditor({ initial, onSaved }: { initial: Payload["settin
   const [workingDays, setWorkingDays] = useState(initial?.workingDays ?? [1, 2, 3, 4, 5, 6]);
   const [periods, setPeriods] = useState(stored.periods?.length === 8 ? stored.periods : defaultLayout().periods);
   const [breaks, setBreaks] = useState(stored.breaks ?? []);
+  const [attendanceCutoff, setAttendanceCutoff] = useState(initial?.attendanceCutoff ?? "10:00");
+  const [attendanceEscalationMinutes, setAttendanceEscalationMinutes] = useState(initial?.attendanceEscalationMinutes ?? 30);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const updatePeriod = (index: number, key: "start" | "end", value: string) => setPeriods((current) => current.map((period, row) => row === index ? { ...period, [key]: value } : period));
   const save = async () => {
     setSaving(true); setMessage("");
     try {
-      const response = await fetch("/api/v1/schedule-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ workingDays, periods, breaks }) });
+      const response = await fetch("/api/v1/schedule-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ workingDays, periods, breaks, attendanceCutoff, attendanceEscalationMinutes }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       await onSaved(); setMessage("Saved.");
@@ -99,10 +101,11 @@ function ScheduleSettingsEditor({ initial, onSaved }: { initial: Payload["settin
     finally { setSaving(false); }
   };
   return <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
-    <h2 className="text-xl font-bold">School week and period times</h2><p className="mt-1 text-sm text-slate-600">Sunday starts as a weekly off day. Saturdays work unless disabled here.</p>
+    <h2 className="text-xl font-bold">School week and period times</h2><p className="mt-1 text-sm text-slate-600">Sunday starts as a weekly off day. Saturdays work unless disabled here. Attendance reminders use India time.</p>
     <div className="mt-3 flex flex-wrap gap-2">{days.map((name, index) => <label key={name} className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm"><input type="checkbox" checked={workingDays.includes(index)} onChange={(event) => setWorkingDays((current) => event.target.checked ? [...current, index].sort() : current.filter((item) => item !== index))} />{name.slice(0, 3)}</label>)}</div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{periods.map((period, index) => <fieldset key={period.period} className="grid grid-cols-2 gap-2 rounded-xl border p-3"><legend className="px-1 text-sm font-semibold">Period {period.period}</legend><input aria-label={`Period ${period.period} starts`} type="time" value={period.start} onChange={(event) => updatePeriod(index, "start", event.target.value)} className={field} /><input aria-label={`Period ${period.period} ends`} type="time" value={period.end} onChange={(event) => updatePeriod(index, "end", event.target.value)} className={field} /></fieldset>)}</div>
     <div className="mt-4"><h3 className="font-semibold">Breaks</h3>{breaks.map((item, index) => <div key={`${item.afterPeriod}-${index}`} className="mt-2 grid gap-2 sm:grid-cols-4"><input aria-label="Break name" value={item.label} onChange={(event) => setBreaks((current) => current.map((value, row) => row === index ? { ...value, label: event.target.value } : value))} className={field} /><select aria-label="Break after period" value={item.afterPeriod} onChange={(event) => setBreaks((current) => current.map((value, row) => row === index ? { ...value, afterPeriod: Number(event.target.value) } : value))} className={field}>{Array.from({ length: 9 }, (_, afterPeriod) => <option key={afterPeriod} value={afterPeriod}>After period {afterPeriod}</option>)}</select><input aria-label="Break starts" type="time" value={item.start} onChange={(event) => setBreaks((current) => current.map((value, row) => row === index ? { ...value, start: event.target.value } : value))} className={field} /><div className="flex gap-2"><input aria-label="Break ends" type="time" value={item.end} onChange={(event) => setBreaks((current) => current.map((value, row) => row === index ? { ...value, end: event.target.value } : value))} className={field} /><button type="button" onClick={() => setBreaks((current) => current.filter((_, row) => row !== index))} className="rounded-lg border px-3">×</button></div></div>)}<button type="button" onClick={() => setBreaks((current) => [...current, { afterPeriod: 2, label: "Break", start: "10:00", end: "10:15" }])} className="mt-2 min-h-10 rounded-lg border px-3 text-sm font-medium">Add break</button></div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">Attendance reminder cutoff (IST)<input type="time" value={attendanceCutoff} onChange={(event) => setAttendanceCutoff(event.target.value)} className={`${field} mt-1`} /></label><label className="text-sm font-medium">Escalate to Principal after (minutes)<input type="number" min={5} max={240} step={5} value={attendanceEscalationMinutes} onChange={(event) => setAttendanceEscalationMinutes(Number(event.target.value))} className={`${field} mt-1`} /></label></div>
     <button disabled={saving} onClick={() => void save()} className="mt-4 min-h-12 rounded-xl bg-emerald-900 px-4 font-semibold text-white">Save school schedule</button><span aria-live="polite" className="ml-3 text-sm">{message}</span>
   </section>;
 }

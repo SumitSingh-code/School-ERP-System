@@ -8,6 +8,7 @@ const tenantModels = new Set([
   "LedgerEntry",
   "ClassTeacherAssignment",
   "SubjectTeacherAssignment", "ScheduleSettings", "Holiday", "CombinedLessonGroup", "TimetableChange",
+  "SubstituteAssignment", "AttendanceSubmission", "AttendanceRecord", "NotificationTemplate", "Notification",
 ]);
 const whereOperations = new Set([
   "findFirst", "findFirstOrThrow", "findUnique", "findUniqueOrThrow", "findMany",

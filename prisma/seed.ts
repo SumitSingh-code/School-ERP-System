@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { passwordPolicyError } from "../src/lib/auth-rules";
 import { seedSystemRoles } from "../src/lib/role-permissions";
 import { initializeAcademicStructure } from "../src/lib/seed-academics";
+import { defaultAttendanceTemplates } from "../src/lib/attendance-rules";
 
 const prisma = new PrismaClient();
 
@@ -39,6 +40,7 @@ async function main() {
   });
 
   const academic = await initializeAcademicStructure(prisma, school.id);
+  await prisma.notificationTemplate.createMany({ data: defaultAttendanceTemplates(school.id), skipDuplicates: true });
   for (let index = 0; index < academic.sections.length; index += 1) {
     const section = academic.sections[index];
     if (!section) continue;

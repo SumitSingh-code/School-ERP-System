@@ -5,6 +5,7 @@ import argon2 from "argon2";
 import { normalizeLoginPhone, passwordPolicyError } from "../src/lib/auth-rules";
 import { seedSystemRoles } from "../src/lib/role-permissions";
 import { initializeAcademicStructure } from "../src/lib/seed-academics";
+import { defaultAttendanceTemplates } from "../src/lib/attendance-rules";
 
 const prisma = new PrismaClient();
 
@@ -62,6 +63,7 @@ async function main() {
     const user = await tx.user.create({ data: { schoolId: school.id, name: directorName, phone, passwordHash } });
     await tx.userRole.create({ data: { userId: user.id, roleId: directorRole.id, schoolId: school.id } });
     await initializeAcademicStructure(tx, school.id);
+    await tx.notificationTemplate.createMany({ data: defaultAttendanceTemplates(school.id), skipDuplicates: true });
     await tx.auditLog.create({ data: {
       actorId: user.id,
       schoolId: school.id,
