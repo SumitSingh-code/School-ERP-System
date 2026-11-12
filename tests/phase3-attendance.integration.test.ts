@@ -119,10 +119,10 @@ test("Phase 3 attendance submission, notification outbox, late correction, permi
 
     await prisma.scheduleSettings.create({ data: { schoolId: schoolA, workingDays: [1, 2, 3, 4, 5, 6], periodLayout: [], attendanceCutoff: "10:00", attendanceEscalationMinutes: 30 } });
     const beforeCutoff = new Date("2026-11-10T04:35:00.000Z"); // 10:05 IST
-    assert.equal(await queueAttendanceReminders(prisma, beforeCutoff), 1, "the unsubmitted section queues its class teacher reminder");
-    assert.equal(await queueAttendanceReminders(prisma, beforeCutoff), 0, "reminder retries are idempotent");
+    assert.equal(await queueAttendanceReminders(prisma, beforeCutoff, [schoolA]), 1, "the unsubmitted section queues its class teacher reminder");
+    assert.equal(await queueAttendanceReminders(prisma, beforeCutoff, [schoolA]), 0, "reminder retries are idempotent");
     const escalationTime = new Date("2026-11-10T05:00:00.000Z"); // 10:30 IST
-    assert.equal(await queueAttendanceReminders(prisma, escalationTime), 2, "the class teacher and Principal receive escalation-stage reminders");
+    assert.equal(await queueAttendanceReminders(prisma, escalationTime, [schoolA]), 2, "the class teacher and Principal receive escalation-stage reminders");
     assert.ok(await prisma.auditLog.count({ where: { schoolId: schoolA, action: "attendance.reminders.queued" } }) >= 2, "worker reminder writes are audited");
 
     const today = new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);

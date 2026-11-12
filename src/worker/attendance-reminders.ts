@@ -5,12 +5,12 @@ import { renderTemplate } from "@/lib/attendance-rules";
 const istClock = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const istDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
 
-export async function queueAttendanceReminders(prisma: PrismaClient, now = new Date()) {
+export async function queueAttendanceReminders(prisma: PrismaClient, now = new Date(), schoolIds?: readonly string[]) {
   const dateText = istDate.format(now);
   const date = new Date(`${dateText}T00:00:00.000Z`);
   const clock = istClock.format(now);
   const nowMinutes = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
-  const schools = await prisma.school.findMany({ select: { id: true } });
+  const schools = await prisma.school.findMany({ where: schoolIds?.length ? { id: { in: [...schoolIds] } } : undefined, select: { id: true } });
   let queued = 0;
   for (const school of schools) {
     const db = forSchool(prisma, school.id);
