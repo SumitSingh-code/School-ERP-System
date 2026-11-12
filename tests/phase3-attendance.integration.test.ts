@@ -69,6 +69,7 @@ test("Phase 3 attendance submission, notification outbox, late correction, permi
     const studentB = await prisma.student.create({ data: { schoolId: schoolB, admissionNo: `SYN-B-${suffix.slice(0, 8)}`, fullName: "Synthetic Other School Student", status: "ACTIVE", sectionId: sectionB.id } });
     const foreignSubmission = await prisma.attendanceSubmission.create({ data: { schoolId: schoolB, sectionId: sectionB.id, date: new Date("2026-11-10T00:00:00Z"), submittedById: parentActorId, idempotencyKey: randomUUID() } });
     const foreignRecord = await prisma.attendanceRecord.create({ data: { schoolId: schoolB, submissionId: foreignSubmission.id, sectionId: sectionB.id, studentId: studentB.id, date: new Date("2026-11-10T00:00:00Z"), status: "ABSENT" } });
+    const schoolBSubmissionCountBefore = await prisma.attendanceSubmission.count({ where: { schoolId: schoolB } });
     const guardianA = await prisma.guardian.create({ data: { schoolId: schoolA, name: "Synthetic Guardian A", phone: `p3-parent-a-${suffix}` } });
     await prisma.studentGuardian.create({ data: { schoolId: schoolA, studentId: studentA.id, guardianId: guardianA.id, relation: "Parent", isPrimary: true } });
     const baseUrl = "http://localhost/api/v1/attendance";
@@ -114,7 +115,7 @@ test("Phase 3 attendance submission, notification outbox, late correction, permi
     assert.equal((await prisma.attendanceRecord.findUniqueOrThrow({ where: { id: foreignRecord.id } })).status, "ABSENT");
 
     const schoolBSubmissionCount = await prisma.attendanceSubmission.count({ where: { schoolId: schoolB } });
-    assert.equal(schoolBSubmissionCount, 0, "school B remains unchanged");
+    assert.equal(schoolBSubmissionCount, schoolBSubmissionCountBefore, "school B remains unchanged");
 
     await prisma.scheduleSettings.create({ data: { schoolId: schoolA, workingDays: [1, 2, 3, 4, 5, 6], periodLayout: [], attendanceCutoff: "10:00", attendanceEscalationMinutes: 30 } });
     const beforeCutoff = new Date("2026-11-10T04:35:00.000Z"); // 10:05 IST
