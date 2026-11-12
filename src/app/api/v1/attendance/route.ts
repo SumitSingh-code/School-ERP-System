@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { attendanceNotificationCopy, normalizeAttendanceDate, renderTemplate, teacherCanMarkForDate } from "@/lib/attendance-rules";
@@ -76,12 +76,13 @@ export const POST = withSchoolRoute("attendance.mark", async (request: NextReque
   if (!year || date < year.startsOn || date > year.endsOn) return NextResponse.json({ error: "Attendance date must be inside this section's academic year" }, { status: 400 });
 
   try {
+    const submissionId = randomUUID();
     const result = await auditedMutation(db, {
       actorId: principal.userId, activeRole: principal.activeRole, schoolId: principal.schoolId,
-      action: "attendance.section.submitted", entityType: "AttendanceSubmission",
+      action: "attendance.section.submitted", entityType: "AttendanceSubmission", entityId: submissionId,
       newValue: { sectionId: input.sectionId, date: input.date, absentCount: students.length, idempotencyKey },
     }, async (tx) => {
-      const submission = await tx.attendanceSubmission.create({ data: { schoolId: principal.schoolId, sectionId: input.sectionId, date, submittedById: principal.userId, idempotencyKey } });
+      const submission = await tx.attendanceSubmission.create({ data: { id: submissionId, schoolId: principal.schoolId, sectionId: input.sectionId, date, submittedById: principal.userId, idempotencyKey } });
       if (students.length) await tx.attendanceRecord.createMany({ data: students.map((student) => ({ schoolId: principal.schoolId, submissionId: submission.id, sectionId: input.sectionId, studentId: student.id, date, status: "ABSENT" })) });
       const links = students.length ? await tx.studentGuardian.findMany({ where: { studentId: { in: students.map((student) => student.id) }, deletedAt: null }, include: { guardian: { select: { id: true, name: true } }, student: { select: { id: true, fullName: true } } } }) : [];
       const templates = links.length ? await tx.notificationTemplate.findMany({ where: { eventType: "ATTENDANCE_ABSENT", channel: "IN_APP", active: true, language: { in: ["en", "hi"] } } }) : [];
